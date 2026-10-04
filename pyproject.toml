@@ -1,0 +1,38 @@
+[project]
+name = "fairgate"
+version = "0.1.0"
+description = "Motor de contratos de equidad (QA Gates) para pipelines de aprendizaje supervisado"
+requires-python = ">=3.11,<3.12"
+# Versiones exactas en requirements.lock.txt (reproducibilidad local y en CI, ADR-009).
+dependencies = [
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "scipy",
+    "fairlearn",
+    "pandera",
+    "pydantic>=2",
+    "pyyaml",
+    "mlflow",
+    "rdflib",
+    "pyshacl",
+    "reportlab",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "dvc"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["fairgate*"]
+
+[tool.setuptools.package-data]
+"fairgate.semantic" = ["*.ttl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]

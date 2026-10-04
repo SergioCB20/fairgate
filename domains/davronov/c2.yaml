@@ -1,0 +1,25 @@
+contract_id: C2
+version: "3.0"
+gate: QA_GATE_2
+stage: transformadores
+dataset: davronov
+protected_attributes:
+  - name: Sex
+    groups: [1, 2]
+    unprivileged: null
+    source_columns: [Sex]
+    use_as_feature: false
+  - name: Age_group
+    column: Age
+    groups: {"<25": "Age < 25", ">=25": "Age >= 25"}
+    unprivileged: "<25"
+    source_columns: [Age]
+    use_as_feature: false
+rules:
+  # Umbrales iniciales, pendientes de calibración con Marital (ADR-006).
+  - {id: C2-AUC, metric: leakage_auc, operator: le, threshold: 0.60, severity: block}
+  - {id: C2-INC, metric: leakage_auc_increment, operator: le, threshold: 0.02, severity: block}
+params:
+  folds: 5
+  random_state: 42
+tooling: scikit-learn

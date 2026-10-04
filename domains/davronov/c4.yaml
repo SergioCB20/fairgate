@@ -1,0 +1,31 @@
+contract_id: C4
+version: "1.0"
+gate: QA_GATE_4
+stage: lotes_produccion
+dataset: davronov
+protected_attributes:
+  - name: Sex
+    groups: [1, 2]
+    unprivileged: null
+    source_columns: [Sex]
+    use_as_feature: false
+  - name: Age_group
+    column: Age
+    groups: {"<25": "Age < 25", ">=25": "Age >= 25"}
+    unprivileged: "<25"
+    source_columns: [Age]
+    use_as_feature: false
+rules:
+  # Deriva de datos: solo se registra (ADR-010). Umbral de diseño, aún sin calibrar.
+  - {id: C4-DRIFT, metric: drift_share, operator: le, threshold: 0.30, severity: warn}
+  # Deriva del sesgo: las reglas del C3 recalculadas sobre cada lote; bloquea -> Trigger CT.
+  - {id: C4-SPD, metric: spd, operator: le, threshold: 0.10, severity: block}
+  - {id: C4-EOD, metric: eod, operator: le, threshold: 0.10, severity: block}
+  - {id: C4-DI, metric: di, operator: ge, threshold: 0.80, severity: block}
+# El C4 alerta solo con evidencia de incumplimiento: todo el intervalo cruza el umbral (ADR-017).
+# Con el peor extremo, el escenario de control bloqueaba casi todos los lotes de menos de 1 742 registros.
+statistics: {method: bootstrap, n_resamples: 500, confidence: 0.95, decide_on: best_bound, random_state: 42}
+params:
+  stattest_threshold: 0.1   # distancias de Wasserstein y Jensen-Shannon (criterio de Evidently, ADR-016)
+  batches: 4                # operación simulada: particiones del conjunto de prueba (Cap. 4, 4.5.5)
+tooling: scipy

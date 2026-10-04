@@ -1,0 +1,25 @@
+contract_id: C3
+version: "3.0"
+gate: QA_GATE_3
+stage: modelo_entrenado
+dataset: davronov
+protected_attributes:
+  - name: Sex
+    groups: [1, 2]
+    unprivileged: null
+    source_columns: [Sex]
+    use_as_feature: false
+  - name: Age_group
+    column: Age
+    groups: {"<25": "Age < 25", ">=25": "Age >= 25"}
+    unprivileged: "<25"
+    source_columns: [Age]
+    use_as_feature: false
+rules:
+  - {id: C3-SPD, metric: spd, operator: le, threshold: 0.10, severity: block}
+  - {id: C3-EOD, metric: eod, operator: le, threshold: 0.10, severity: block}
+  - {id: C3-DI, metric: di, operator: ge, threshold: 0.80, severity: block}
+  - {id: C3-ACC, metric: balanced_accuracy_drop, operator: le, threshold: 0.05, severity: warn}
+statistics: {method: bootstrap, n_resamples: 500, confidence: 0.95, decide_on: worst_bound, random_state: 42}
+remediation: {enabled: true, method: reweighing, allow_protected_at_inference: false}
+tooling: fairlearn

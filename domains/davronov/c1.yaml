@@ -1,0 +1,26 @@
+contract_id: C1
+version: "3.0"
+gate: QA_GATE_1
+stage: datos_crudos
+dataset: davronov
+protected_attributes:
+  - name: Sex
+    groups: [1, 2]
+    unprivileged: null             # codificación no documentada: métricas simétricas
+    source_columns: [Sex]
+    use_as_feature: false
+  - name: Age_group
+    column: Age
+    groups: {"<25": "Age < 25", ">=25": "Age >= 25"}
+    unprivileged: "<25"
+    source_columns: [Age]          # Age se excluye de las variables del modelo (ADR-013)
+    use_as_feature: false
+rules:
+  - {id: C1-SCHEMA, metric: schema_violations, operator: le, threshold: 0, severity: block}
+  - {id: C1-NULLS, metric: max_null_ratio, operator: le, threshold: 0.05, severity: block}
+  - {id: C1-DUPS, metric: duplicate_ratio, operator: le, threshold: 0.01, severity: block}
+  - {id: C1-FORBIDDEN, metric: forbidden_features, operator: le, threshold: 0, severity: block}
+  # Fuga de la etiqueta no declarada: ninguna variable debe separar Y casi por completo (ADR-015).
+  - {id: C1-LEAK, metric: max_feature_target_auc, operator: le, threshold: 0.95, severity: block}
+  - {id: C1-REP, metric: min_group_proportion, operator: ge, threshold: 0.05, severity: block}
+tooling: pandera

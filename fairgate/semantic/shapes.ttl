@@ -1,0 +1,96 @@
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix fair: <https://pucp.edu.pe/ontology/fair#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dqv:  <http://www.w3.org/ns/dqv#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# Una forma por clase de la Ontología de Fairness (Cap. 4, 4.4.4). Un grafo que no conforma
+# estas formas no se incorpora al repositorio.
+
+fair:DataBatchShape a sh:NodeShape ;
+    sh:targetClass fair:DataBatch ;
+    sh:property [ sh:path fair:dvcHash ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path fair:recordsCount ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ] .
+
+fair:FairnessContractShape a sh:NodeShape ;
+    sh:targetClass fair:FairnessContract ;
+    sh:property [ sh:path fair:contractId ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path fair:version ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] .
+
+fair:RuleShape a sh:NodeShape ;
+    sh:targetClass fair:Rule ;
+    sh:property [ sh:path fair:ruleId ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path fair:metricName ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path fair:operator ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "le" "ge" "lt" "gt" ) ] ;
+    sh:property [ sh:path fair:threshold ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ] ;
+    sh:property [ sh:path fair:severity ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "block" "warn" ) ] ;
+    sh:property [ sh:path fair:partOfContract ; sh:minCount 1 ; sh:maxCount 1 ; sh:class fair:FairnessContract ] .
+
+fair:ProtectedAttributeShape a sh:NodeShape ;
+    sh:targetClass fair:ProtectedAttribute ;
+    sh:property [ sh:path fair:attributeName ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] .
+
+fair:TransformationStepShape a sh:NodeShape ;
+    sh:targetClass fair:TransformationStep ;
+    sh:property [ sh:path rdfs:label ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+fair:GateExecutionShape a sh:NodeShape ;
+    sh:targetClass fair:GateExecution ;
+    sh:property [ sh:path fair:appliesRule ; sh:minCount 1 ; sh:class fair:Rule ] ;
+    sh:property [ sh:path fair:gatePassed ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:boolean ] ;
+    sh:property [ sh:path prov:startedAtTime ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path prov:used ; sh:minCount 1 ] ;
+    sh:property [ sh:path fair:mlflowRunId ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path fair:afterStep ; sh:class fair:TransformationStep ] .
+
+fair:FairnessMeasurementShape a sh:NodeShape ;
+    sh:targetClass fair:FairnessMeasurement ;
+    sh:property [ sh:path prov:wasGeneratedBy ; sh:minCount 1 ; sh:maxCount 1 ; sh:class fair:GateExecution ] ;
+    sh:property [ sh:path fair:measuresRule ; sh:minCount 1 ; sh:maxCount 1 ; sh:class fair:Rule ] ;
+    sh:property [ sh:path dqv:value ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ] ;
+    sh:property [ sh:path fair:decisionValue ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ] ;
+    sh:property [ sh:path fair:rulePassed ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:boolean ] ;
+    sh:property [ sh:path dqv:computedOn ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path dqv:isMeasurementOf ; sh:minCount 1 ; sh:maxCount 1 ; sh:class dqv:Metric ] ;
+    sh:property [ sh:path fair:concernsAttribute ; sh:maxCount 1 ; sh:class fair:ProtectedAttribute ] ;
+    sh:property [ sh:path fair:atStep ; sh:maxCount 1 ; sh:class fair:TransformationStep ] ;
+    sh:property [ sh:path fair:ciLow ; sh:maxCount 1 ; sh:datatype xsd:decimal ;
+                  sh:lessThanOrEquals fair:ciHigh ] ;
+    sh:property [ sh:path fair:ciHigh ; sh:maxCount 1 ; sh:datatype xsd:decimal ] .
+
+fair:ModelVersionShape a sh:NodeShape ;
+    sh:targetClass fair:ModelVersion ;
+    sh:property [ sh:path prov:wasDerivedFrom ; sh:minCount 1 ] ;
+    sh:property [ sh:path fair:mlflowRunId ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path fair:modelStage ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "base" "remediado" ) ] ;
+    sh:property [ sh:path fair:balancedAccuracy ; sh:maxCount 1 ; sh:datatype xsd:decimal ] ;
+    sh:property [ sh:path fair:registeredAs ; sh:maxCount 1 ; sh:datatype xsd:string ] .
+
+fair:RemediationShape a sh:NodeShape ;
+    sh:targetClass fair:Remediation ;
+    sh:property [ sh:path fair:method ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path prov:wasInformedBy ; sh:minCount 1 ; sh:maxCount 1 ; sh:class fair:GateExecution ] ;
+    sh:property [ sh:path prov:used ; sh:minCount 1 ] ;
+    sh:property [ sh:path prov:generated ; sh:minCount 1 ; sh:maxCount 1 ; sh:class fair:ModelVersion ] .
+
+fair:AdverseActionReasonShape a sh:NodeShape ;
+    sh:targetClass fair:AdverseActionReason ;
+    sh:property [ sh:path fair:applicantPseudoId ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path fair:featureName ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:string ] ;
+    sh:property [ sh:path fair:contribution ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:decimal ] ;
+    sh:property [ sh:path fair:rank ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path fair:explainsDecisionOf ; sh:minCount 1 ; sh:maxCount 1 ; sh:class fair:ModelVersion ] .
+
+fair:DriftAlertShape a sh:NodeShape ;
+    sh:targetClass fair:DriftAlert ;
+    sh:property [ sh:path fair:alertType ; sh:minCount 1 ; sh:maxCount 1 ; sh:in ( "datos" "sesgo" ) ] ;
+    sh:property [ sh:path fair:raisedOn ; sh:minCount 1 ; sh:maxCount 1 ; sh:class fair:DataBatch ] ;
+    sh:property [ sh:path prov:generatedAtTime ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] ;
+    sh:property [ sh:path prov:wasGeneratedBy ; sh:minCount 1 ; sh:maxCount 1 ; sh:class fair:GateExecution ] ;
+    sh:property [ sh:path fair:triggersRetraining ; sh:maxCount 1 ; sh:datatype xsd:boolean ] .
+
+fair:ComplianceReportShape a sh:NodeShape ;
+    sh:targetClass fair:ComplianceReport ;
+    sh:property [ sh:path fair:documents ; sh:minCount 1 ] ;
+    sh:property [ sh:path prov:generatedAtTime ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:dateTime ] .

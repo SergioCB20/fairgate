@@ -1,0 +1,31 @@
+# Entorno
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Datos: NUNCA en Git (licencia del dataset). Solo los descriptores .dvc.
+data/**
+!data/**/
+!data/**/*.dvc
+!data/**/.gitignore
+
+# Linaje local de MLflow
+mlflow.db
+mlruns/
+mlartifacts/
+
+# Credenciales
+kaggle.json
+.dvc/config.local
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Salidas de la Zona 4 (derivadas del linaje)
+lineage/
+reports/

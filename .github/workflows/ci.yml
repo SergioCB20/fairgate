@@ -1,0 +1,59 @@
+name: CI - QA Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  motor:
+    # Pruebas del motor con datos sintéticos: no necesitan el dataset.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.lock.txt && pip install -e . --no-deps
+      - run: python -m fairgate validate domains/davronov
+      - run: pytest tests/unit -v
+
+  compuertas-davronov:
+    # Compuertas C1 → C3 sobre el dataset real y C4 sobre la operación simulada (escenario de control). Requiere un remoto DVC privado y sus
+    # credenciales como secrets del repositorio (ver README). Sin ellas, el job se omite.
+    needs: motor
+    runs-on: ubuntu-latest
+    env:
+      DVC_REMOTE_USER: ${{ secrets.DVC_REMOTE_USER }}
+      DVC_REMOTE_PASSWORD: ${{ secrets.DVC_REMOTE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.lock.txt && pip install -e . --no-deps
+      - name: Descargar el dataset (DVC)
+        if: env.DVC_REMOTE_USER != ''
+        run: |
+          dvc remote modify origin --local auth basic
+          dvc remote modify origin --local user "$DVC_REMOTE_USER"
+          dvc remote modify origin --local password "$DVC_REMOTE_PASSWORD"
+          dvc pull
+      - name: QA Gates C1 → C4 (una prueba por regla y atributo)
+        if: env.DVC_REMOTE_USER != ''
+        run: pytest tests/gates -v -x
+        env:
+          FAIRGATE_LINEAGE: "1"
+      - name: Zona 4 - grafo RDF (SHACL) y reporte de cumplimiento
+        if: env.DVC_REMOTE_USER != '' && always()
+        run: python -m fairgate report domains/davronov
+      - name: Guardar linaje, grafo y reporte
+        if: env.DVC_REMOTE_USER != '' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linaje-y-reporte
+          path: |
+            mlflow.db
+            lineage/
+            reports/

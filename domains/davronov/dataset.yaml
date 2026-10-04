@@ -1,0 +1,47 @@
+# Caso de estudio principal: "Credit-scoring data" (Davronov, 2021), fintech de Asia Central.
+# Licencia "Data files © Original Authors": el CSV NO se versiona en Git (ver README).
+name: davronov
+path: data/davronov/credit-scoring.csv
+source: https://www.kaggle.com/datasets/islombekdavronov/creditscoring-data
+target: label
+favorable_label: 1          # 1 = buen pagador
+
+columns:
+  - {name: label, dtype: int, allowed_values: [0, 1]}
+  - {name: Age, dtype: int, min_value: 18, max_value: 100}
+  - {name: Sex, dtype: int, allowed_values: [1, 2]}
+  - {name: Marital, dtype: int, allowed_values: [1, 2, 3, 4, 5, 6, 7]}
+  - {name: Language, dtype: int, allowed_values: [1, 2]}
+  - {name: Has_Credit, dtype: int, allowed_values: [1, 2]}
+  - {name: Region, dtype: int, min_value: 0}
+  - {name: Number_of_credits, dtype: int, min_value: 0}
+  - {name: Linked_cards, dtype: int, min_value: 0}
+  - {name: INPS_mln_sum, dtype: float, min_value: 0}
+  - {name: INPS_yes_no, dtype: int, allowed_values: [0, 1]}
+
+# Columnas que filtran la etiqueta: se eliminan al cargar el lote.
+# - Score_*: el puntaje de la fintech (el notebook del autor obtiene ~100 % de exactitud con ellas).
+# - Field y Changed_phone_number: detectadas por la regla C1-LEAK el 2026-09-28 (ADR-015).
+#   Field = 0 concentra 656 de los 670 impagos; Changed_phone_number = 0 -> label = 1 en
+#   7 808 de 7 808 registros. AUC univariado frente a la etiqueta: 0,992 y 0,986.
+leakage_columns: [Score_level, Score_class, Score_point, Field, Changed_phone_number]
+
+# Variables del modelo. Sex y Age no aparecen: son el atributo protegido y la columna de
+# origen de Age_group (use_as_feature: false en los contratos; ADR-013). El C1 lo verifica.
+features:
+  numeric: [Number_of_credits, Linked_cards, INPS_mln_sum]
+  categorical: [Region, Language, Has_Credit, INPS_yes_no]
+
+excluded_features:
+  - {name: Marital, reason: "Proxy casi perfecto de Sex detectado por el C2 en la primera iteración (ADR-001)."}
+  - {name: Month_of_birth, reason: "Sin significado crediticio documentado; el dataset no tiene diccionario."}
+  - {name: Day_of_birth, reason: "Sin significado crediticio documentado; el dataset no tiene diccionario."}
+
+split:
+  test_size: 0.2
+  random_state: 42
+
+# Clasificador base de la Zona 2 (catálogo en fairgate/preprocessing.py). Lineal para que las
+# contribuciones SHAP de las razones de rechazo sean baratas de calcular (Cap. 4, 4.5.5).
+model:
+  estimator: logistic_regression

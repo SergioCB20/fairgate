@@ -1,0 +1,88 @@
+@prefix fair: <https://pucp.edu.pe/ontology/fair#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix dqv:  <http://www.w3.org/ns/dqv#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# Ontología de Fairness (Cap. 4, 4.4): reutiliza PROV-O para el linaje y DQV para las
+# mediciones; define solo los conceptos propios del dominio.
+
+<https://pucp.edu.pe/ontology/fair> a owl:Ontology ;
+    rdfs:label "Ontología de Fairness"@es ;
+    owl:versionInfo "1.2" ;
+    owl:imports <http://www.w3.org/ns/prov-o#> , <http://www.w3.org/ns/dqv#> .
+
+# ----------------------------------------------------------------------------- clases (Tabla 14)
+
+fair:DataBatch a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Lote de datos identificado por su hash: el de DVC para el lote de entrenamiento y el de su contenido para cada lote de producción."@es .
+fair:TransformationStep a owl:Class ; rdfs:subClassOf prov:Activity ;
+    rdfs:comment "Paso de preprocesamiento (imputación, escalado, codificación)."@es .
+fair:FairnessContract a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Contrato de equidad versionado (C1–C4)."@es .
+fair:Rule a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Regla de un contrato: métrica, operador, umbral y severidad."@es .
+fair:ProtectedAttribute a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Atributo protegido y sus grupos."@es .
+fair:GateExecution a owl:Class ; rdfs:subClassOf prov:Activity ;
+    rdfs:comment "Ejecución de una compuerta sobre un lote o un modelo, con resultado Pasa/Falla."@es .
+fair:FairnessMeasurement a owl:Class ; rdfs:subClassOf dqv:QualityMeasurement ;
+    rdfs:comment "Valor de una métrica para una regla y un atributo, con su intervalo de confianza."@es .
+fair:ModelVersion a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Versión de un clasificador (base o remediado) registrada en MLflow."@es .
+fair:Remediation a owl:Class ; rdfs:subClassOf prov:Activity ;
+    rdfs:comment "Aplicación de una técnica de mitigación que genera un modelo remediado."@es .
+fair:AdverseActionReason a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Razón de rechazo generada para un solicitante seudonimizado."@es .
+fair:DriftAlert a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Alerta de deriva de datos o del sesgo sobre un lote."@es .
+fair:ComplianceReport a owl:Class ; rdfs:subClassOf prov:Entity ;
+    rdfs:comment "Reporte de cumplimiento generado a partir del grafo."@es .
+
+# ----------------------------------------------------------------------------- propiedades de objeto (Tabla 15)
+
+fair:appliesRule a owl:ObjectProperty ; rdfs:domain fair:GateExecution ; rdfs:range fair:Rule .
+fair:partOfContract a owl:ObjectProperty ; rdfs:domain fair:Rule ; rdfs:range fair:FairnessContract .
+fair:concernsAttribute a owl:ObjectProperty ; rdfs:domain fair:FairnessMeasurement ; rdfs:range fair:ProtectedAttribute .
+fair:measuresRule a owl:ObjectProperty ; rdfs:domain fair:FairnessMeasurement ; rdfs:range fair:Rule ;
+    rdfs:comment "Regla cuyo cumplimiento evalúa la medición (agregada en la implementación)."@es .
+fair:afterStep a owl:ObjectProperty ; rdfs:domain fair:GateExecution ; rdfs:range fair:TransformationStep .
+fair:atStep a owl:ObjectProperty ; rdfs:domain fair:FairnessMeasurement ; rdfs:range fair:TransformationStep ;
+    rdfs:comment "Paso de preprocesamiento en el que se observó el valor de la medición (C2)."@es .
+fair:explainsDecisionOf a owl:ObjectProperty ; rdfs:domain fair:AdverseActionReason ; rdfs:range fair:ModelVersion .
+fair:raisedOn a owl:ObjectProperty ; rdfs:domain fair:DriftAlert ; rdfs:range fair:DataBatch .
+fair:documents a owl:ObjectProperty ; rdfs:domain fair:ComplianceReport .
+
+# ----------------------------------------------------------------------------- propiedades de datos
+
+fair:contractId a owl:DatatypeProperty ; rdfs:range xsd:string .
+fair:version a owl:DatatypeProperty ; rdfs:range xsd:string .
+fair:ruleId a owl:DatatypeProperty ; rdfs:range xsd:string .
+fair:metricName a owl:DatatypeProperty ; rdfs:range xsd:string .
+fair:operator a owl:DatatypeProperty ; rdfs:range xsd:string .
+fair:threshold a owl:DatatypeProperty ; rdfs:range xsd:decimal .
+fair:severity a owl:DatatypeProperty ; rdfs:range xsd:string .
+fair:attributeName a owl:DatatypeProperty ; rdfs:range xsd:string .
+fair:ciLow a owl:DatatypeProperty ; rdfs:range xsd:decimal .
+fair:ciHigh a owl:DatatypeProperty ; rdfs:range xsd:decimal .
+fair:decisionValue a owl:DatatypeProperty ; rdfs:range xsd:decimal ;
+    rdfs:comment "Valor con el que se decidió: el extremo más desfavorable del intervalo o el valor puntual."@es .
+fair:rulePassed a owl:DatatypeProperty ; rdfs:domain fair:FairnessMeasurement ; rdfs:range xsd:boolean .
+fair:gatePassed a owl:DatatypeProperty ; rdfs:domain fair:GateExecution ; rdfs:range xsd:boolean .
+fair:subject a owl:DatatypeProperty ; rdfs:domain fair:GateExecution ; rdfs:range xsd:string .
+fair:dvcHash a owl:DatatypeProperty ; rdfs:domain fair:DataBatch ; rdfs:range xsd:string .
+fair:recordsCount a owl:DatatypeProperty ; rdfs:domain fair:DataBatch ; rdfs:range xsd:integer .
+fair:mlflowRunId a owl:DatatypeProperty ; rdfs:range xsd:string .
+fair:modelStage a owl:DatatypeProperty ; rdfs:domain fair:ModelVersion ; rdfs:range xsd:string .
+fair:balancedAccuracy a owl:DatatypeProperty ; rdfs:domain fair:ModelVersion ; rdfs:range xsd:decimal .
+fair:registeredAs a owl:DatatypeProperty ; rdfs:domain fair:ModelVersion ; rdfs:range xsd:string ;
+    rdfs:comment "Nombre con el que el modelo aprobado se registró en MLflow."@es .
+fair:method a owl:DatatypeProperty ; rdfs:domain fair:Remediation ; rdfs:range xsd:string .
+fair:applicantPseudoId a owl:DatatypeProperty ; rdfs:domain fair:AdverseActionReason ; rdfs:range xsd:string .
+fair:featureName a owl:DatatypeProperty ; rdfs:domain fair:AdverseActionReason ; rdfs:range xsd:string .
+fair:contribution a owl:DatatypeProperty ; rdfs:domain fair:AdverseActionReason ; rdfs:range xsd:decimal .
+fair:rank a owl:DatatypeProperty ; rdfs:domain fair:AdverseActionReason ; rdfs:range xsd:integer .
+fair:alertType a owl:DatatypeProperty ; rdfs:domain fair:DriftAlert ; rdfs:range xsd:string .
+fair:triggersRetraining a owl:DatatypeProperty ; rdfs:domain fair:DriftAlert ; rdfs:range xsd:boolean ;
+    rdfs:comment "Si la alerta disparó el reentrenamiento (Trigger CT); agregada en la etapa 3."@es .
