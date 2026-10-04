@@ -95,7 +95,7 @@ El exportador lee **solo** de MLflow, con la última ejecución del pipeline o l
 ## CI (GitHub Actions)
 
 - `motor`: valida los contratos y ejecuta `tests/unit`. Siempre corre.
-- `compuertas-davronov`: descarga el dataset con `dvc pull` y ejecuta `tests/gates`: C1 a C3 sobre el pipeline y C4 sobre la operación simulada, donde no debe haber alertas. Solo corre si el repositorio tiene los *secrets* `DVC_REMOTE_USER` y `DVC_REMOTE_PASSWORD` de un remoto DVC **privado** (por ejemplo, un repositorio privado de DagsHub configurado como remoto `origin`).
+- `compuertas-davronov`: descarga el dataset con `dvc pull` y ejecuta `tests/gates`: C1 a C3 sobre el pipeline y C4 sobre la operación simulada, donde no debe haber alertas. Solo corre si el repositorio tiene los *secrets* `DAGSHUB_USER` y `DAGSHUB_TOKEN` (usuario y token) de un remoto DVC **privado** (por ejemplo, un repositorio privado de DagsHub configurado como remoto `origin`).
 
 ## Estado (etapas de ADR-014)
 

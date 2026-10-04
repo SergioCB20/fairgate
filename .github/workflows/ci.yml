@@ -25,8 +25,8 @@ jobs:
     needs: motor
     runs-on: ubuntu-latest
     env:
-      DVC_REMOTE_USER: ${{ secrets.DVC_REMOTE_USER }}
-      DVC_REMOTE_PASSWORD: ${{ secrets.DVC_REMOTE_PASSWORD }}
+      DVC_REMOTE_USER: ${{ secrets.DAGSHUB_USER }}
+      DVC_REMOTE_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
