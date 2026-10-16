@@ -1,0 +1,3 @@
+# Los hashes del congelamiento (experiments/congelamiento*.json) se calculan sobre los bytes de los
+# contratos: fijar LF evita que una copia en Windows cambie los hashes.
+domains/**/*.yaml text eol=lf
