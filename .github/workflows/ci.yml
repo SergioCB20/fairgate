@@ -45,6 +45,11 @@ jobs:
         run: pytest tests/gates -v -x
         env:
           FAIRGATE_LINEAGE: "1"
+      - name: Costo en GitHub Actions (Cap. 6, 6.2.3) - repeticiones del control con todas las compuertas
+        if: env.DVC_REMOTE_USER != ''
+        run: |
+          python -m experiments ejecutar --semillas humo --escenarios E0 --salida resultados-ci/costo-e0.jsonl
+          python -m experiments analizar resultados-ci/costo-e0.jsonl
       - name: Zona 4 - grafo RDF (SHACL) y reporte de cumplimiento
         if: env.DVC_REMOTE_USER != '' && always()
         run: python -m fairgate report domains/davronov
@@ -57,3 +62,4 @@ jobs:
             mlflow.db
             lineage/
             reports/
+            resultados-ci/

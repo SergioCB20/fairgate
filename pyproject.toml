@@ -17,6 +17,7 @@ dependencies = [
     "rdflib",
     "pyshacl",
     "reportlab",
+    "shap",
 ]
 
 [project.optional-dependencies]
@@ -34,5 +35,6 @@ include = ["fairgate*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]  # paquete experiments/ (O4), que no se instala
 addopts = "-ra"
-filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning", "ignore::PendingDeprecationWarning:shap.*"]

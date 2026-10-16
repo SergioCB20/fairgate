@@ -63,6 +63,27 @@ def test_best_bound_fails_only_when_whole_interval_violates():
     assert not evaluate(di, 0.70, ci=(0.60, 0.78), decide_on="best_bound").passed
 
 
+def test_rule_level_decision_overrides_the_contract():
+    """ADR-018: el C3 bloquea con el valor y advierte con el peor extremo del intervalo."""
+    from fairgate.gates import group_fairness_results
+    from fairgate.schema import Contract
+
+    contract = Contract.model_validate({
+        "contract_id": "C3", "version": "1", "gate": "QA_GATE_3", "stage": "modelo", "dataset": "sint",
+        "protected_attributes": [{"name": "z", "groups": [1, 2]}],
+        "rules": [{"id": "SPD", "metric": "spd", "operator": "le", "threshold": 0.10},
+                  {"id": "SPD-IC", "metric": "spd", "operator": "le", "threshold": 0.10, "severity": "warn",
+                   "decide_on": "worst_bound"}],
+        "statistics": {"method": "bootstrap", "n_resamples": 200, "decide_on": "point"},
+    })
+    rng = np.random.default_rng(0)
+    groups = pd.DataFrame({"z": np.repeat(["1", "2"], [60, 600])})
+    y_pred = np.r_[rng.random(60) < 0.85, rng.random(600) < 0.90].astype(int)  # SPD ≈ 0,05, grupo pequeño
+    block, warn = (group_fairness_results(contract, r, np.ones(660, int), y_pred, groups)[0] for r in contract.rules)
+    assert block.decision_value == block.value and block.passed
+    assert warn.decision_value == warn.ci_high and not warn.passed  # el intervalo cruza el umbral
+
+
 # --------------------------------------------------------------------------- captura y scoring
 
 

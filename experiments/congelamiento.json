@@ -1,0 +1,12 @@
+{
+  "fecha": "2026-10-15T03:05:16.455506+00:00",
+  "nota": "Congelado por el agente a pedido del autor (2026-10-14), tras la calibración: C3 v4.0 en tres estados (ADR-018), umbral de deriva del C4 confirmado en 0,30, E3 con verdad de referencia en el C1 y E4R agregado (estado/o4-implementacion.md).",
+  "dominio": "domains/davronov",
+  "hashes": {
+    "c1.yaml": "194e748a7f0851e5198506a606e5f87153b787cd03ca30525d094e52ecdd0ad3",
+    "c2.yaml": "8c5cd5675b09bedec2814c01887e8108454245158fc252814175400cb484e074",
+    "c3.yaml": "89de6983d69424933dabec4b4f297daecc4b77be6a84ee3300a453705fe7a2d0",
+    "c4.yaml": "8e8dc4800cad9e91e3baaa54af990cd1d366cdb635020aaa274aa5175e0e648a",
+    "dataset.yaml": "2384b24389471556bd0b9f86223d8f4da7579bac41fad62aa1bb600c67bb8a2d"
+  }
+}

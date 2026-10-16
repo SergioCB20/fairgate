@@ -29,3 +29,6 @@ Thumbs.db
 # Salidas de la Zona 4 (derivadas del linaje)
 lineage/
 reports/
+
+# Evaluación experimental (O4): registros y reportes, derivados del dataset
+experiments/resultados/

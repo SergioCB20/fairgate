@@ -143,6 +143,8 @@ class Rule(_Strict):
     operator: Operator
     threshold: float
     severity: Severity = "block"
+    # Regla de decisión propia; por defecto, la de `statistics` del contrato (ADR-018).
+    decide_on: Literal["worst_bound", "best_bound", "point"] | None = None
 
 
 class Statistics(_Strict):
@@ -151,6 +153,7 @@ class Statistics(_Strict):
     confidence: float = 0.95
     # worst_bound: se exige evidencia de cumplimiento (C3, antes de desplegar; ADR-008).
     # best_bound: se exige evidencia de incumplimiento (C4, para alertar en la operación; ADR-017).
+    # point: se decide con el valor; el intervalo se informa (C3 con advertencia por el IC; ADR-018).
     decide_on: Literal["worst_bound", "best_bound", "point"] = "worst_bound"
     random_state: int = 42
 

@@ -54,7 +54,7 @@ WHERE {
     "PC3": (
         "¿Qué razones de rechazo se comunicaron a cada solicitante?",
         """
-SELECT ?applicant ?rank ?feature ?contribution ?modelRun
+SELECT ?applicant ?rank ?feature ?contribution ?modelRun ?batch
 WHERE {
   ?r a fair:AdverseActionReason ;
      fair:applicantPseudoId ?applicant ;
@@ -62,8 +62,9 @@ WHERE {
      fair:featureName ?feature ;
      fair:contribution ?contribution ;
      fair:explainsDecisionOf/fair:mlflowRunId ?modelRun .
+  OPTIONAL { ?r prov:wasDerivedFrom/fair:dvcHash ?batch }
 }
-ORDER BY ?applicant ?rank
+ORDER BY ?batch ?applicant ?rank
 """,
     ),
     "PC4": (

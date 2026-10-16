@@ -1,0 +1,30 @@
+contract_id: C2
+version: "1.0"
+gate: QA_GATE_2
+stage: transformadores
+dataset: hmda
+protected_attributes:
+  - name: Sex
+    groups: [Male, Female]          # "Joint" y "No disponible" no pertenecen a ningún grupo
+    unprivileged: Female
+    source_columns: [Sex]
+    use_as_feature: false
+  - name: Race
+    groups: [White, Black]
+    unprivileged: Black
+    source_columns: [Race]
+    use_as_feature: false
+  - name: Age_group
+    column: Age
+    groups: {"65+": ["65-74", ">74"], "<65": ["<25", "25-34", "35-44", "45-54", "55-64"]}
+    unprivileged: "65+"             # el regulador publica la edad en rangos; 62 años no es un corte disponible
+    source_columns: [Age]
+    use_as_feature: false
+rules:
+  # Umbrales calibrados con Davronov (Marital) y congelados; no se recalibran para HMDA.
+  - {id: C2-AUC, metric: leakage_auc, operator: le, threshold: 0.60, severity: block}
+  - {id: C2-INC, metric: leakage_auc_increment, operator: le, threshold: 0.02, severity: block}
+params:
+  folds: 5
+  random_state: 42
+tooling: scikit-learn

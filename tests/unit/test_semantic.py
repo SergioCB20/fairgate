@@ -93,11 +93,57 @@ def test_operation_alerts_are_traceable_pc4(tmp_path, mlflow_tmp):
     assert {(r["alertType"], r["subject"]) for r in pc4} == {("datos", "lote:sesgado"), ("sesgo", "lote:sesgado")}
     sesgo = next(r for r in pc4 if r["alertType"] == "sesgo")
     assert sesgo["trigger"] is True and "C4-SPD[z]" in sesgo["rules"]
+    # PC3: las razones de rechazo de cada lote quedan en el grafo, ligadas al modelo que decidió
+    pc3 = run_query(g, "PC3")
+    rejected = {pid for o in monitor.outcomes for pid in o.scored.decisions.query("decision == 0").index}
+    assert pc3 and {r["applicant"] for r in pc3} <= rejected
+    assert {r["modelRun"] for r in pc3} == {monitor.model_run_id}
+    assert {r["feature"] for r in pc3} <= {"x1", "c1"}
     # Los lotes de producción quedan en el grafo junto al lote de entrenamiento
     assert len(set(g.subjects(predicate=FAIR.dvcHash))) == 3
     add_report_node(g, run)
     assert validate(g)[0]
     assert write_pdf(g, run, True, tmp_path / "reporte.pdf").exists()
+
+
+def test_repository_keeps_the_history_of_runs(tmp_path, mlflow_tmp):
+    from fairgate.semantic.export import export
+    from fairgate.semantic.store import Repository
+
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    blocked = write_domain(tmp_path / "a", synthetic_frame(proxy_strength=0.9), categorical=("c1", "p"))
+    approved = write_domain(tmp_path / "b", synthetic_frame(n=4000))
+    repo = Repository(tmp_path / "lineage")
+    paths = []
+    for dom in (blocked, approved):
+        Session(dom).run()
+        *_, conforms, _, path = export("sint", repo.directory)
+        assert conforms
+        paths.append(path)
+
+    assert repo.runs("sint") == paths  # una ejecución por grafo, en orden
+    pc1 = repo.query("PC1", "sint")
+    assert {(r["ejecucion"], r["ruleId"]) for r in pc1} == {(paths[0].stem, "C2-AUC")}  # solo la primera bloqueó
+    pc2 = repo.query("PC2", "sint")
+    assert [r["ejecucion"] for r in pc2] == [paths[1].stem]  # solo la segunda aprobó un modelo
+    # La unión integra los nodos compartidos: ambas ejecuciones usan el mismo contrato C1.
+    union = repo.dataset("sint")
+    assert len(set(union.subjects(predicate=FAIR.contractId, object=Literal("C1")))) == 1
+    assert len(set(union.subjects(predicate=FAIR.gatePassed))) == 5  # C1 y C2 + C1, C2 y C3
+
+
+def test_shacl_rejects_reason_without_model(tmp_path, mlflow_tmp):
+    from fairgate.monitoring import Monitor, simulate_batches
+
+    dom = write_domain(tmp_path, synthetic_frame(n=4000))
+    Session(dom).run()
+    Monitor.from_registry(dom).run(simulate_batches(synthetic_frame(n=600, seed=3), 1))
+    g = build_graph(load_pipeline_run("sint"))
+    assert validate(g)[0]
+    reason = next(g.subjects(predicate=FAIR.applicantPseudoId))
+    g.remove((reason, FAIR.explainsDecisionOf, None))  # razón que no indica qué modelo decidió
+    assert not validate(g)[0]
 
 
 def test_shacl_rejects_alert_without_batch(tmp_path, mlflow_tmp):

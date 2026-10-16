@@ -189,11 +189,19 @@ def top_proxies(x: pd.DataFrame, z: pd.Series, k: int = 3) -> list[dict]:
     return sorted(scores, key=lambda s: -s["auc"])[:k]
 
 
-def run_c2(contract: Contract, domain: Domain, train: pd.DataFrame, batch_hash: str) -> GateResult:
+def run_c2(
+    contract: Contract,
+    domain: Domain,
+    train: pd.DataFrame,
+    batch_hash: str,
+    steps: list[tuple[str, pd.DataFrame]] | None = None,
+) -> GateResult:
+    """`steps`: salida de cada paso del preprocesamiento; por defecto, la de `stepwise_outputs`.
+    Permite evaluar otros transformadores (p. ej., uno sesgado en el escenario E3 del O4)."""
     ds = domain.dataset
     folds = int(contract.params.get("folds", 5))
     rs = int(contract.params.get("random_state", 42))
-    steps = stepwise_outputs(train, ds.features)
+    steps = stepwise_outputs(train, ds.features) if steps is None else steps
     groups = group_frame(train, contract.protected_attributes)
     y = train[ds.target]
 
@@ -262,7 +270,7 @@ def group_fairness_results(
         form = "direccional" if u is not None else "simétrica"
         counts = pd.Series(g).value_counts().to_dict()
         results.append(
-            evaluate(rule, value, attribute=attr.name, ci=ci, decide_on=st.decide_on,
+            evaluate(rule, value, attribute=attr.name, ci=ci, decide_on=rule.decide_on or st.decide_on,
                      details={"form": form, **rates, "group_sizes": {str(k): int(v) for k, v in counts.items()}})
         )
     return results
@@ -308,7 +316,10 @@ def run_c3(contract: Contract, domain: Domain, train: pd.DataFrame, test: pd.Dat
     rem = contract.remediation
     if not base_res.passed and rem is not None and rem.enabled:
         tech = get_technique(rem.method, rem.allow_protected_at_inference)
-        combo = group_frame(train, contract.protected_attributes).astype(str).agg("|".join, axis=1)
+        # Los registros que no pertenecen a ningún grupo (p. ej., solicitudes conjuntas en HMDA)
+        # forman su propio estrato en la reponderación.
+        groups_train = group_frame(train, contract.protected_attributes).fillna("sin grupo")
+        combo = groups_train.astype(str).agg("|".join, axis=1)
         model, report = tech.apply(base, x_train, y_train, combo, **rem.params)
         rem_res, rem_acc = _evaluate_model(
             contract, domain, model, test, batch_hash, "modelo:remediado", base_bal_acc=base_acc

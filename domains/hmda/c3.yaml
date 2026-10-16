@@ -1,0 +1,37 @@
+contract_id: C3
+version: "1.0"
+gate: QA_GATE_3
+stage: modelo_entrenado
+dataset: hmda
+protected_attributes:
+  - name: Sex
+    groups: [Male, Female]          # "Joint" y "No disponible" no pertenecen a ningún grupo
+    unprivileged: Female
+    source_columns: [Sex]
+    use_as_feature: false
+  - name: Race
+    groups: [White, Black]
+    unprivileged: Black
+    source_columns: [Race]
+    use_as_feature: false
+  - name: Age_group
+    column: Age
+    groups: {"65+": ["65-74", ">74"], "<65": ["<25", "25-34", "35-44", "45-54", "55-64"]}
+    unprivileged: "65+"             # el regulador publica la edad en rangos; 62 años no es un corte disponible
+    source_columns: [Age]
+    use_as_feature: false
+# Regla en tres estados (ADR-018): bloquea si el valor incumple el umbral; si el valor cumple pero el
+# peor extremo del intervalo no, advierte que la muestra no permite demostrar el cumplimiento.
+# Con el peor extremo como bloqueo, el control de calibración bloqueaba el modelo justo en 14 de 30
+# semillas (~130 jóvenes en la prueba); con el valor puntual, en 0 de 30.
+rules:
+  - {id: C3-SPD, metric: spd, operator: le, threshold: 0.10, severity: block}
+  - {id: C3-EOD, metric: eod, operator: le, threshold: 0.10, severity: block}
+  - {id: C3-DI, metric: di, operator: ge, threshold: 0.80, severity: block}
+  - {id: C3-SPD-IC, metric: spd, operator: le, threshold: 0.10, severity: warn, decide_on: worst_bound}
+  - {id: C3-EOD-IC, metric: eod, operator: le, threshold: 0.10, severity: warn, decide_on: worst_bound}
+  - {id: C3-DI-IC, metric: di, operator: ge, threshold: 0.80, severity: warn, decide_on: worst_bound}
+  - {id: C3-ACC, metric: balanced_accuracy_drop, operator: le, threshold: 0.05, severity: warn}
+statistics: {method: bootstrap, n_resamples: 500, confidence: 0.95, decide_on: point, random_state: 42}
+remediation: {enabled: true, method: reweighing, allow_protected_at_inference: false}
+tooling: fairlearn

@@ -127,7 +127,19 @@ def write_pdf(g: Graph, run: PipelineRun, conforms: bool, path: Path) -> Path:
 
     h("6. Razones de rechazo (PC3)", 2)
     pc3 = run_query(g, "PC3")
-    p(f"Razones de rechazo registradas: {len(pc3)}. Se generan en la operación (Zona 3).")
+    if pc3:
+        applicants = {r["applicant"] for r in pc3}
+        p(f"Solicitantes rechazados con razones registradas: <b>{len(applicants)}</b> ({len(pc3)} factores). "
+          "Son los factores principales de cada decisión según SHAP: describen la contribución de cada variable "
+          "a la puntuación del modelo, no relaciones causales.")
+        first: dict[str, int] = {}
+        for r in pc3:
+            if r["rank"] == 1:
+                first[r["feature"]] = first.get(r["feature"], 0) + 1
+        table(["Variable", "Veces como factor principal (rango 1)"],
+              [[f, n] for f, n in sorted(first.items(), key=lambda kv: -kv[1])])
+    else:
+        p("No hay razones de rechazo registradas: aún no se evaluó ningún lote o ningún solicitante fue rechazado.")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     SimpleDocTemplate(str(path), pagesize=landscape(A4), leftMargin=1.5 * cm, rightMargin=1.5 * cm,

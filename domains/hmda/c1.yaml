@@ -1,0 +1,32 @@
+contract_id: C1
+version: "1.0"
+gate: QA_GATE_1
+stage: datos_crudos
+dataset: hmda
+protected_attributes:
+  - name: Sex
+    groups: [Male, Female]          # "Joint" y "No disponible" no pertenecen a ningún grupo
+    unprivileged: Female
+    source_columns: [Sex]
+    use_as_feature: false
+  - name: Race
+    groups: [White, Black]
+    unprivileged: Black
+    source_columns: [Race]
+    use_as_feature: false
+  - name: Age_group
+    column: Age
+    groups: {"65+": ["65-74", ">74"], "<65": ["<25", "25-34", "35-44", "45-54", "55-64"]}
+    unprivileged: "65+"             # el regulador publica la edad en rangos; 62 años no es un corte disponible
+    source_columns: [Age]
+    use_as_feature: false
+rules:
+  - {id: C1-SCHEMA, metric: schema_violations, operator: le, threshold: 0, severity: block}
+  # HMDA: el regulador no exige el LTV ni el valor de la propiedad en todas las solicitudes
+  # denegadas (6 % de nulos en el LTV). Se imputan en la Zona 2 y el C2 evalúa la imputación.
+  - {id: C1-NULLS, metric: max_null_ratio, operator: le, threshold: 0.10, severity: block}
+  - {id: C1-DUPS, metric: duplicate_ratio, operator: le, threshold: 0.01, severity: block}
+  - {id: C1-FORBIDDEN, metric: forbidden_features, operator: le, threshold: 0, severity: block}
+  - {id: C1-LEAK, metric: max_feature_target_auc, operator: le, threshold: 0.95, severity: block}
+  - {id: C1-REP, metric: min_group_proportion, operator: ge, threshold: 0.05, severity: block}
+tooling: pandera

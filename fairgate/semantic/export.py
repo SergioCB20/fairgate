@@ -48,7 +48,7 @@ class PipelineRun:
     dataset: str
     batch_hash: str
     records_count: int
-    gates: list[dict]  # [{"run_id", "result": dict, "model_registered_as": str|None}]
+    gates: list[dict]  # [{"run_id", "result": dict, "model_registered_as": str|None, "reasons": list}]
     # Zona 3: ejecuciones de operación del modelo aprobado (Contrato C4), cada una con sus lotes:
     # [{"run_id", "model_run_id", "gates": [...]}]
     operations: list[dict] = field(default_factory=list)
@@ -60,14 +60,20 @@ def _gate_runs(client, experiment_id: str, parent_id: str) -> list[dict]:
     )
     gates = []
     for child in children:
+        names = {a.path for a in client.list_artifacts(child.info.run_id)}
         with tempfile.TemporaryDirectory() as d:
             path = client.download_artifacts(child.info.run_id, "gate_result.json", d)
             result = json.loads(Path(path).read_text(encoding="utf-8"))
+            reasons = []
+            if "rejection_reasons.json" in names:  # Zona 3: razones de rechazo del lote
+                path = client.download_artifacts(child.info.run_id, "rejection_reasons.json", d)
+                reasons = json.loads(Path(path).read_text(encoding="utf-8"))
         versions = client.search_model_versions(f"run_id = '{child.info.run_id}'")
         gates.append({
             "run_id": child.info.run_id,
             "result": result,
             "model_registered_as": versions[0].name if versions else None,
+            "reasons": reasons,
         })
     return gates
 
@@ -245,6 +251,16 @@ def build_graph(run: PipelineRun) -> Graph:
             prod_batch = add_batch(res["batch_hash"], extra.get("records_count", 0))
             execution = add_execution(res, run_id, prod_batch)
             g.add((execution, PROV.used, model))  # modelo que puntuó el lote
+            # Razones de rechazo (PC3): factores principales de cada solicitante rechazado
+            for r in gate.get("reasons", []):
+                reason = ex[f"reason/{run_id}/{_slug(r['pseudo_id'])}/{int(r['rank'])}"]
+                g.add((reason, RDF.type, FAIR.AdverseActionReason))
+                g.add((reason, FAIR.applicantPseudoId, Literal(str(r["pseudo_id"]))))
+                g.add((reason, FAIR.rank, Literal(int(r["rank"]), datatype=XSD.integer)))
+                g.add((reason, FAIR.featureName, Literal(r["feature"])))
+                g.add((reason, FAIR.contribution, _dec(r["contribution"])))
+                g.add((reason, FAIR.explainsDecisionOf, model))
+                g.add((reason, PROV.wasDerivedFrom, prod_batch))
             for kind, flag in (("datos", "data_drift_alert"), ("sesgo", "bias_drift_alert")):
                 if not extra.get(flag):
                     continue
@@ -270,13 +286,11 @@ def validate(g: Graph) -> tuple[bool, str]:
 
 
 def export(dataset: str, out_dir: Path, run_id: str | None = None, tracking_uri: str | None = None):
-    """MLflow → RDF → SHACL. Solo escribe el grafo si conforma las formas."""
+    """MLflow → RDF → SHACL. Solo incorpora el grafo al repositorio si conforma las formas."""
+    from .store import Repository
+
     run = load_pipeline_run(dataset, run_id, tracking_uri)
     g = build_graph(run)
     conforms, report = validate(g)
-    path = None
-    if conforms:
-        out_dir.mkdir(parents=True, exist_ok=True)
-        path = out_dir / f"{run.dataset}-{run.batch_hash[:8]}-{run.run_id[:8]}.ttl"
-        g.serialize(path, format="turtle")
+    path = Repository(out_dir).add(g, run.dataset, run.batch_hash, run.run_id) if conforms else None
     return run, g, conforms, report, path

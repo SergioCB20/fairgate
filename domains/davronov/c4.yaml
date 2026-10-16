@@ -28,4 +28,5 @@ statistics: {method: bootstrap, n_resamples: 500, confidence: 0.95, decide_on: b
 params:
   stattest_threshold: 0.1   # distancias de Wasserstein y Jensen-Shannon (criterio de Evidently, ADR-016)
   batches: 4                # operación simulada: particiones del conjunto de prueba (Cap. 4, 4.5.5)
+  reason_top_k: 3           # factores principales (SHAP) por solicitante rechazado; 0 = sin razones (PC3)
 tooling: scipy

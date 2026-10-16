@@ -14,13 +14,16 @@ fairgate/            motor genérico
   preprocessing.py   pasos imputación → escalado → codificación      ADR-006
   gates.py           C1 (datos), C2 (filtración por paso), C3 (modelo + remediación)
   monitoring.py      Zona 3: scorer por lotes, seudonimización, deriva de datos y del sesgo, C4   ADR-010, ADR-016, ADR-017
+  explanations.py    Zona 3: razones de rechazo (factores principales SHAP) y su estabilidad
   remediation.py     catálogo: reponderación (Kamiran & Calders, 2012) ADR-012
   lineage.py         registro de cada ejecución en MLflow
   engine.py          orquestación C1 → C2 → C3 con interrupción (el C4 se evalúa en la operación)
   semantic/          Zona 4: ontology.ttl, shapes.ttl (SHACL), export.py (MLflow → RDF),
-                     queries.py (PC1–PC5 en SPARQL), report.py (reporte PDF desde el grafo)
+                     queries.py (PC1–PC5 en SPARQL), report.py (reporte PDF desde el grafo),
+                     store.py (repositorio RDF: una ejecución por grafo con nombre)
   cli.py             `python -m fairgate validate|run|monitor|export|query|report <dominio>`
 domains/davronov/    dataset.yaml + contratos c1.yaml, c2.yaml, c3.yaml, c4.yaml
+domains/hmda/        caso de generalización (E6): HMDA de Delaware, 2022 (referencia) y 2023 (producción)
 tests/unit/          pruebas del motor con datos sintéticos (no necesitan el dataset)
 tests/gates/         una prueba por regla × atributo sobre el dataset real
 ```
@@ -65,10 +68,11 @@ python -m fairgate monitor domains/davronov lote1.csv    # lotes de producción 
 El monitor carga la última versión de `<dataset>-scoring` desde el registro de MLflow (Trigger CD) y, por cada lote:
 
 1. Asigna a cada registro un seudónimo (HMAC-SHA256 con la clave `FAIRGATE_PSEUDONYM_KEY`; sin ella, la clave es efímera) y separa el atributo protegido y la etiqueta en almacenes propios. El scorer recibe solo las variables del modelo.
-2. Evalúa el C4:
+2. **Razones de rechazo** (`fairgate/explanations.py`): para cada solicitante rechazado, hasta `params.reason_top_k` variables (3 por defecto; 0 las desactiva) con la contribución SHAP más negativa al resultado favorable. Se denominan *factores principales*: describen la puntuación del modelo, no causas. Explicador lineal para la regresión logística y de árboles para los demás clasificadores del catálogo; las columnas one-hot se suman en su variable de origen. Se registran en MLflow (`rejection_reasons.json`) y llegan al grafo como `fair:AdverseActionReason` (PC3). `top_k_agreement` mide su estabilidad entre dos modelos (Cap. 6, 6.4).
+3. Evalúa el C4:
    - **Deriva de datos (`warn`):** proporción de variables con deriva, con las pruebas que Evidently usa por defecto, implementadas con SciPy (ADR-016).
    - **Deriva del sesgo (`block`):** SPD, EOD y DI del C3 sobre el lote. Se alerta solo si todo el intervalo de confianza incumple el umbral (`decide_on: best_bound`, ADR-017). Sin etiquetas observadas, la EOD queda como "no aplica".
-3. Si hay deriva del sesgo, registra la alerta y termina con **exit 1 (Trigger CT)**. El reentrenamiento consiste en volver a ejecutar el pipeline (`run`) con los datos nuevos; ese disparo automático no está implementado.
+4. Si hay deriva del sesgo, registra la alerta y termina con **exit 1 (Trigger CT)**. El reentrenamiento consiste en volver a ejecutar el pipeline (`run`) con los datos nuevos; ese disparo automático no está implementado.
 
 Con `--no-lineage`, el pipeline se ejecuta en memoria y se despliega el modelo que aprueba el C3. Davronov no tiene marcas temporales, así que la operación es **simulada**: los lotes son particiones aleatorias del conjunto de prueba, sin deriva inyectada (escenario de control). Su número se declara en `c4.yaml` (`params.batches`).
 
@@ -79,27 +83,67 @@ Cada ejecución de compuerta se registra en MLflow (`mlflow.db`): parámetros de
 ```bash
 python -m fairgate export domains/davronov      # MLflow → RDF; valida con SHACL; escribe lineage/<dataset>-<hash>-<run>.ttl
 python -m fairgate query domains/davronov PC1   # PC1..PC5 (preguntas de competencia) o MEDICIONES
+python -m fairgate query domains/davronov PC1 --historial  # la misma pregunta sobre todo el repositorio RDF
 python -m fairgate report domains/davronov      # grafo + reporte de cumplimiento en reports/*.pdf
 ```
 
-El exportador lee **solo** de MLflow, con la última ejecución del pipeline o la indicada con `--run-id`. También incluye las ejecuciones de operación del modelo que esa ejecución aprobó: cada lote de producción (`fair:DataBatch`, con el hash de su contenido), su ejecución del C4 y las alertas `fair:DriftAlert`. El grafo reutiliza PROV-O y DQV (`fairgate/semantic/ontology.ttl`) y solo se escribe si conforma las formas SHACL (`shapes.ttl`, una por clase). El reporte PDF se construye con consultas SPARQL sobre el grafo y queda registrado en él como `fair:ComplianceReport`. Preguntas de competencia:
+El exportador lee **solo** de MLflow, con la última ejecución del pipeline o la indicada con `--run-id`. También incluye las ejecuciones de operación del modelo que esa ejecución aprobó: cada lote de producción (`fair:DataBatch`, con el hash de su contenido), su ejecución del C4 y las alertas `fair:DriftAlert`. El grafo reutiliza PROV-O y DQV (`fairgate/semantic/ontology.ttl`) y solo se incorpora al repositorio si conforma las formas SHACL (`shapes.ttl`, una por clase).
+
+El **repositorio RDF** es el directorio `lineage/` (`fairgate/semantic/store.py`): cada ejecución del pipeline es un grafo con nombre, persistido como `<dataset>-<hash>-<run>.ttl`. Con `--historial`, la pregunta se responde sobre todas las ejecuciones y cada fila indica de cuál proviene (columna `ejecucion`). Los nodos compartidos (lotes, contratos, reglas y atributos) tienen el mismo IRI en todas las ejecuciones, así que `Repository.dataset()` los integra en la unión de los grafos para consultas SPARQL propias. El reporte PDF se construye con consultas SPARQL sobre el grafo y queda registrado en él como `fair:ComplianceReport`. Preguntas de competencia:
 
 | | Pregunta |
 |---|---|
 | PC1 | ¿Qué contrato y regla bloquearon, con qué valor e intervalo, y en qué paso? |
 | PC2 | ¿Con qué lote (hash) se entrenó el modelo aprobado? |
-| PC3 | ¿Qué razones de rechazo se comunicaron a cada solicitante? (Zona 3, etapa 3) |
+| PC3 | ¿Qué razones de rechazo se comunicaron a cada solicitante? |
 | PC4 | ¿Qué alertas de deriva ocurrieron, sobre qué lote, por qué regla y si dispararon el reentrenamiento? |
 | PC5 | ¿Cuál fue la diferencia de exactitud y de equidad entre el modelo base y el remediado? |
+
+## Evaluación experimental (O4, `experiments/`)
+
+Infraestructura del protocolo del Cap. 6. No forma parte del motor: usa sus compuertas sobre datos con sesgos inyectados.
+
+```
+experiments/
+  protocol.py           escenarios E0–E5, intensidades, semillas y verdad de referencia (Tabla 20)
+  scenarios.py          inyectores (subrepresentación, sustituta, transformador sesgado, etiquetas, deriva)
+  runner.py             repeticiones: todas las compuertas sin detenerse; registro JSONL reanudable
+  configs.py            B0, B2, P−C1, P−C2 y P (Tabla 21): detección, localización, etapa y tiempo
+  stats.py              Wilson, McNemar exacta, Wilcoxon y Holm (6.2.4)
+  analysis.py           reporte: tablas, pruebas pareadas, grilla del C4, equidad–utilidad, costo,
+                        auditabilidad, sensibilidad del C2 y calibración del umbral de deriva (6.2.5)
+  audit.py              6.4: grafo por repetición, fidelidad de las PC, pruebas negativas, linaje vs MLflow
+  drift_export.py       6.2.6: exporta lotes para comparar con Evidently
+  evidently_compare.py  6.2.6: comparación, en un entorno con Evidently (no importa fairgate)
+  stability.py          6.4: estabilidad de las razones de rechazo entre semillas
+  hmda.py               E6: descarga (API del Data Browser de la FFIEC) y preparación de HMDA
+  e6.py                 E6: desarrollo con el año de referencia y C4 sobre los lotes del año siguiente
+```
+
+```bash
+python -m experiments ejecutar --semillas humo --repeticiones 1 --auditoria   # verifica la infraestructura
+python -m experiments ejecutar --semillas calibracion --escenarios E0,E5      # calibración del C4
+python -m experiments congelar --nota "contratos revisados por el autor"     # antes de evaluar
+python -m experiments ejecutar --semillas evaluacion --auditoria             # 30 repeticiones (6.2.4)
+python -m experiments ejecutar --semillas evaluacion --escenarios E0,E4,E5 --clasificador hist_gradient_boosting
+python -m experiments analizar experiments/resultados/evaluacion-dataset.jsonl
+python -m experiments auditar-linaje --semilla 9000                           # negativas y linaje vs MLflow
+python -m experiments estabilidad --semillas evaluacion                       # razones de rechazo (6.4)
+python -m experiments preparar-hmda                                           # E6: descarga y prepara HMDA
+python -m experiments congelar --dominio domains/hmda --nota "..."
+python -m experiments e6 --semillas evaluacion                                # E6: deriva real
+```
+
+Semillas: desarrollo 42, calibración 1000–1029, evaluación 2000–2029, humo 9000–9002. **La evaluación solo se ejecuta con los contratos congelados** (`experiments/congelamiento.json`, con el hash de cada YAML del dominio; `congelamiento-hmda.json` para el E6). Los registros quedan en `experiments/resultados/` (no versionado).
 
 ## CI (GitHub Actions)
 
 - `motor`: valida los contratos y ejecuta `tests/unit`. Siempre corre.
-- `compuertas-davronov`: descarga el dataset con `dvc pull` y ejecuta `tests/gates`: C1 a C3 sobre el pipeline y C4 sobre la operación simulada, donde no debe haber alertas. Solo corre si el repositorio tiene los *secrets* `DAGSHUB_USER` y `DAGSHUB_TOKEN` (usuario y token) de un remoto DVC **privado** (por ejemplo, un repositorio privado de DagsHub configurado como remoto `origin`).
+- `compuertas-davronov`: descarga el dataset con `dvc pull` y ejecuta `tests/gates`: C1 a C3 sobre el pipeline y C4 sobre la operación simulada, donde no debe haber alertas. Después ejecuta tres repeticiones del control (E0, semillas de humo) para medir el costo de cada compuerta en GitHub Actions (Cap. 6, 6.2.3), y guarda el linaje, el reporte y ese registro como artefactos. Solo corre si el repositorio tiene los *secrets* `DAGSHUB_USER` y `DAGSHUB_TOKEN` (usuario y token) de un remoto DVC **privado** (por ejemplo, un repositorio privado de DagsHub configurado como remoto `origin`).
 
 ## Estado (etapas de ADR-014)
 
 - [x] Etapa 1: motor, C1–C3, reponderación, MLflow y CI.
 - [x] Etapa 2: capa semántica (RDF, SHACL, SPARQL, reporte).
-- [ ] Etapa 3: C4 y Zona 3 (hecho el 2026-10-03, salvo las razones de rechazo con SHAP); escenarios E0–E6 (pendientes).
-- [ ] Etapa 4: HMDA.
+- [x] Etapa 3: C4 y Zona 3 (2026-10-03), razones de rechazo con SHAP y repositorio RDF del historial (2026-10-14); escenarios E0–E5 evaluados (2026-10-15).
+- [x] Etapa 4: HMDA (E6, 2026-10-15). Exigió un cambio en el motor: la reponderación ahora admite registros que no pertenecen a ningún grupo protegido (solicitudes conjuntas).

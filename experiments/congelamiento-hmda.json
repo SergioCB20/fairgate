@@ -1,0 +1,12 @@
+{
+  "fecha": "2026-10-16T00:32:06.420389+00:00",
+  "nota": "Congelado por el agente a pedido del autor (2026-10-15, 'haz todos los pendientes'), después de dos iteraciones con la partición de desarrollo (semilla 42): purchaser_type y hoepa_status declaradas como fuga; tract_minority_population_percent y county_code excluidas por el C2. Umbrales de las reglas iguales a Davronov, salvo C1-NULLS = 0,10 (LTV no exigido en denegadas). Corrida de humo con la semilla 9000.",
+  "dominio": "domains/hmda",
+  "hashes": {
+    "c1.yaml": "9d1961908966f51e2fb1343b449b51be01093164c2a98c8faae45e1a022ffc24",
+    "c2.yaml": "4298a3c482d9a4095e75de93176a7f8b0ed4eff529d7f5a3a22e19e9b43a8086",
+    "c3.yaml": "beb20f62c6909287a1300763fea835a66c9205eb50720be0dc483deb0fe350bb",
+    "c4.yaml": "994c44a48d9c382998f3af1e9fc73b55df7ab28336a0554d7de8453acffe25df",
+    "dataset.yaml": "54a1b50c5d2393753e0e82f2fb214cc05a4820e3275f419f2c1fa9642e259ba4"
+  }
+}

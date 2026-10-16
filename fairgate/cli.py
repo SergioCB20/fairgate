@@ -5,6 +5,7 @@
     python -m fairgate monitor domains/davronov    # Zona 3: C4 sobre lotes de producción; exit 1 = Trigger CT
     python -m fairgate export domains/davronov     # MLflow → RDF → SHACL (Zona 4)
     python -m fairgate query domains/davronov PC1  # pregunta de competencia sobre el grafo
+    python -m fairgate query domains/davronov PC1 --historial  # sobre todo el repositorio RDF
     python -m fairgate report domains/davronov     # grafo + reporte de cumplimiento en PDF
 """
 from __future__ import annotations
@@ -45,6 +46,8 @@ def main(argv: list[str] | None = None) -> int:
                            help="número de lotes simulados a partir del conjunto de prueba (por defecto, el del C4)")
         if name == "query":
             p.add_argument("question", help="PC1..PC5 o MEDICIONES")
+            p.add_argument("--historial", action="store_true",
+                           help="consultar todas las ejecuciones del repositorio RDF, no solo la última")
         if name in ("export", "query", "report"):
             p.add_argument("--run-id", default=None, help="ejecución del pipeline en MLflow (por defecto, la última)")
     args = parser.parse_args(argv)
@@ -109,6 +112,8 @@ def _monitor(args, domain) -> int:
     for out in outcomes:
         _print_result(out.result)
         extra = out.result.extra
+        if "rejections_explained" in extra:
+            print(f"   Razones de rechazo (SHAP): {extra['rejections_explained']} solicitantes rechazados explicados")
         if extra["data_drift_alert"]:
             drifted = out.result.find(next(r.rule_id for r in out.result.rules if r.metric == "drift_share"), None)
             print(f"   ALERTA de deriva de datos (warn): {', '.join(drifted.details['drifted'])}")
@@ -126,6 +131,21 @@ def _semantic(args, dataset: str) -> int:
     from .semantic.export import LineageNotFound, export, validate
     from .semantic.queries import QUERIES, run_query
     from .semantic.report import add_report_node, write_pdf
+    from .semantic.store import Repository
+
+    if args.cmd == "query" and args.historial:
+        name = args.question.upper()
+        if name not in QUERIES:
+            print(f"Pregunta desconocida. Disponibles: {', '.join(QUERIES)}", file=sys.stderr)
+            return 2
+        repo = Repository(PROJECT_ROOT / "lineage")
+        print(f"Repositorio RDF: {len(repo.runs(dataset))} ejecuciones de '{dataset}'")
+        print(f"\n{name}: {QUERIES[name][0]}")
+        rows = repo.query(name, dataset)
+        for row in rows:
+            print("  " + " | ".join(f"{k}={v}" for k, v in row.items()))
+        print(f"({len(rows)} resultados)")
+        return 0
 
     try:
         run, graph, conforms, shacl_text, path = export(dataset, PROJECT_ROOT / "lineage", args.run_id)

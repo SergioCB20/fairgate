@@ -63,7 +63,10 @@ class Lineage:
     def run_id(self) -> str:
         return self.parent.info.run_id
 
-    def log_gate(self, result: GateResult, model=None, register_as: str | None = None) -> str:
+    def log_gate(
+        self, result: GateResult, model=None, register_as: str | None = None, artifacts: dict[str, str] | None = None
+    ) -> str:
+        """Registra una ejecución de compuerta. `artifacts`: archivos de texto adicionales (nombre → contenido)."""
         mlflow = self.mlflow
         with mlflow.start_run(run_name=f"{result.contract_id}-{result.subject}", nested=True) as run:
             mlflow.log_params({
@@ -90,6 +93,10 @@ class Lineage:
                 p = Path(d) / "gate_result.json"
                 p.write_text(result.to_json(), encoding="utf-8")
                 mlflow.log_artifact(str(p))
+                for name, content in (artifacts or {}).items():
+                    extra = Path(d) / name
+                    extra.write_text(content, encoding="utf-8")
+                    mlflow.log_artifact(str(extra))
             if model is not None:
                 import mlflow.sklearn
 

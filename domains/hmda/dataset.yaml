@@ -1,0 +1,53 @@
+# Caso de generalización (E6, Cap. 6): HMDA (FFIEC/CFPB), Delaware. Referencia: 2022; producción: 2023.
+# Datos públicos del Gobierno de EE. UU. Se descargan y preparan con experiments/hmda.py; no se versionan.
+name: hmda
+path: data/hmda/hmda-de-2022.csv
+source: https://ffiec.cfpb.gov/data-browser/ (API del Data Browser, states=DE, actions_taken=1,3)
+target: label
+favorable_label: 1          # 1 = solicitud aprobada (action_taken = 1); 0 = denegada (3)
+
+columns:
+  - {name: label, dtype: int, allowed_values: [0, 1]}
+  - {name: Sex, dtype: str, allowed_values: [Male, Female, Joint, No disponible]}
+  - {name: Race, dtype: str, allowed_values: [White, Black, Asian, Other, Joint, No disponible]}
+  - {name: Age, dtype: str, allowed_values: ["<25", "25-34", "35-44", "45-54", "55-64", "65-74", ">74", No disponible]}
+  - {name: loan_amount, dtype: float, min_value: 0}
+  - {name: income, dtype: float, nullable: true}
+  - {name: loan_to_value_ratio, dtype: float, nullable: true, min_value: 0}
+  - {name: property_value, dtype: float, nullable: true, min_value: 0}
+  - {name: loan_term, dtype: float, nullable: true, min_value: 0}
+  - {name: tract_minority_population_percent, dtype: float, min_value: 0, max_value: 100}
+  - {name: debt_to_income_ratio, dtype: str, allowed_values: ["<20%", "20%-<30%", "30%-<36%", "36%-<50%", "50%-60%", ">60%", No disponible]}
+  - {name: loan_type, dtype: int, allowed_values: [1, 2, 3, 4]}
+  - {name: loan_purpose, dtype: int, allowed_values: [1, 2, 4, 5, 31, 32]}
+  - {name: lien_status, dtype: int, allowed_values: [1, 2]}
+  - {name: occupancy_type, dtype: int, allowed_values: [1, 2, 3]}
+  - {name: open_end_line_of_credit, dtype: int, allowed_values: [1, 2]}
+  - {name: business_or_commercial_purpose, dtype: int, allowed_values: [1, 2]}
+  - {name: conforming_loan_limit, dtype: str, allowed_values: [C, NC, No disponible]}
+  - {name: county_code, dtype: int, min_value: 0}
+
+# Variables que se generan después de la decisión: solo existen si el crédito se otorgó (tasa,
+# costos), explican la denegación o describen el crédito otorgado. Se declaran por conocimiento del
+# formato del regulador.
+# - purchaser_type y hoepa_status: en la primera iteración (2026-10-15) fueron variables del modelo y
+#   el C1-LEAK NO las detectó (AUC univariado 0,823 y 0,943 < 0,95), aunque son deterministas para
+#   las aprobadas: hoepa_status 1 o 2 -> aprobada en 27 467 de 27 467 registros; purchaser_type != 0
+#   -> aprobada en 20 034 de 20 034. Como Score_point en Davronov: el AUC no prueba ausencia de fuga.
+leakage_columns: [interest_rate, rate_spread, total_loan_costs, denial_reason_1, purchaser_type, hoepa_status]
+
+features:
+  numeric: [loan_amount, income, loan_to_value_ratio, property_value, loan_term]
+  categorical: [debt_to_income_ratio, loan_type, loan_purpose, lien_status, occupancy_type, open_end_line_of_credit,
+                business_or_commercial_purpose, conforming_loan_limit]
+
+excluded_features:
+  - {name: tract_minority_population_percent, reason: "Sustituta de Race detectada por el C2 en la primera iteración (2026-10-15): primera variable de la filtración, L = 0,82. Usarla reproduce el redlining geográfico."}
+  - {name: county_code, reason: "Segunda variable de la filtración hacia Race en la primera iteración (C2); ubicación geográfica sin justificación crediticia en el modelo."}
+
+split:
+  test_size: 0.2
+  random_state: 42
+
+model:
+  estimator: logistic_regression

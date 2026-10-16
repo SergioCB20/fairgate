@@ -48,7 +48,7 @@ def test_davronov_domain_is_valid_without_data():
     for c in domain.contracts.values():
         check_contract(c, domain.dataset)
     # C3: 3 reglas de grupo x 2 atributos + guardia de exactitud = 7 pruebas
-    assert len(expected_cases(domain.contracts["QA_GATE_3"])) == 7
+    assert len(expected_cases(domain.contracts["QA_GATE_3"])) == 13  # 3 bloqueos + 3 advertencias del IC (ADR-018), por atributo, + C3-ACC
     # C4: deriva de datos + 3 reglas de grupo x 2 atributos = 7 pruebas; alerta con el mejor extremo
     c4 = domain.contracts["QA_GATE_4"]
     assert len(expected_cases(c4)) == 7 and c4.statistics.decide_on == "best_bound"

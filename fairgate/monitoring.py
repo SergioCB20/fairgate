@@ -4,7 +4,9 @@ Flujo por lote de producción B_t:
 1. Captura y seudonimización: cada registro recibe un identificador seudonimizado (HMAC). El
    atributo protegido y la etiqueta observada se guardan en almacenes separados, asociados a
    ese identificador; el scorer no los recibe.
-2. Scorer por lotes: el modelo aprobado puntúa solo las variables del modelo.
+2. Scorer por lotes: el modelo aprobado puntúa solo las variables del modelo. El generador de
+   razones de rechazo obtiene, con SHAP, los factores principales de cada rechazo
+   (`explanations.py`; `params.reason_top_k` del C4, 3 por defecto, 0 para desactivarlo).
 3. Monitor de deriva de datos: compara cada variable del lote con la de entrenamiento.
 4. Monitor de deriva del sesgo: recalcula las reglas de equidad del C3 sobre el lote.
 5. QA Gate 4: si una regla 'block' se incumple, se emite una alerta de deriva del sesgo y se
@@ -106,6 +108,7 @@ class ScoredBatch:
     decisions: pd.DataFrame  # por seudónimo: score y decisión (1 = resultado favorable)
     protected: pd.DataFrame  # almacén separado: grupo de cada atributo protegido, por seudónimo
     outcomes: pd.Series | None  # almacén separado: etiqueta observada (1 = favorable), si existe
+    reasons: pd.DataFrame | None = None  # factores principales de cada rechazo, por seudónimo
 
 
 def score_batch(
@@ -301,9 +304,14 @@ class Monitor:
     # ------------------------------------------------------------------ operación
     def process(self, batch: ProductionBatch) -> BatchOutcome:
         scored = score_batch(self.domain, self.contract, self.model, batch, self.pseudonymizer)
+        top_k = int(self.contract.params.get("reason_top_k", 3))
+        if top_k > 0:
+            scored.reasons = self._reasons(scored, top_k)
         result = run_c4(self.contract, self.domain, scored, self.reference)
         result.extra["pseudonym_key"] = "efímera" if self.pseudonymizer.ephemeral else "configurada"
-        out = BatchOutcome(scored, result, self._log(result))
+        if scored.reasons is not None:
+            result.extra["rejections_explained"] = int(scored.reasons["pseudo_id"].nunique())
+        out = BatchOutcome(scored, result, self._log(result, scored.reasons))
         self.outcomes.append(out)
         return out
 
@@ -314,7 +322,16 @@ class Monitor:
         finally:
             self.close()
 
-    def _log(self, result: GateResult) -> str | None:
+    def _reasons(self, scored: ScoredBatch, top_k: int) -> pd.DataFrame:
+        """Generador de razones de rechazo: recibe las mismas variables que el scorer."""
+        from .explanations import rejection_reasons
+
+        features = self.domain.dataset.features.all
+        x = scored.batch.data[features].reset_index(drop=True).set_axis(scored.decisions.index)
+        return rejection_reasons(self.model, x, self.reference[features], scored.decisions["decision"],
+                                 self.domain.dataset.favorable_label, top_k)
+
+    def _log(self, result: GateResult, reasons: pd.DataFrame | None = None) -> str | None:
         if not self.log_lineage:
             return None
         if self._lineage is None:
@@ -324,7 +341,10 @@ class Monitor:
                 self.domain.dataset.name, self.training_hash, len(self.reference), role="operacion",
                 tags={"fairgate.pipeline_run_id": self.pipeline_run_id, "fairgate.model_run_id": self.model_run_id},
             )
-        return self._lineage.log_gate(result)
+        artifacts = None
+        if reasons is not None:
+            artifacts = {"rejection_reasons.json": reasons.to_json(orient="records", force_ascii=False)}
+        return self._lineage.log_gate(result, artifacts=artifacts)
 
     def close(self) -> None:
         if self._lineage is not None:
