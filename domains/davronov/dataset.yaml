@@ -30,10 +30,9 @@ leakage_columns: [Score_level, Score_class, Score_point, Field, Changed_phone_nu
 # origen de Age_group (use_as_feature: false en los contratos; ADR-013). El C1 lo verifica.
 features:
   numeric: [Number_of_credits, Linked_cards, INPS_mln_sum]
-  categorical: [Region, Language, Has_Credit, INPS_yes_no]
+  categorical: [Region, Language, Has_Credit, INPS_yes_no, Marital]  # DEMO: proxy de Sex reintroducido a propósito
 
 excluded_features:
-  - {name: Marital, reason: "Proxy casi perfecto de Sex detectado por el C2 en la primera iteración (ADR-001)."}
   - {name: Month_of_birth, reason: "Sin significado crediticio documentado; el dataset no tiene diccionario."}
   - {name: Day_of_birth, reason: "Sin significado crediticio documentado; el dataset no tiene diccionario."}
 
