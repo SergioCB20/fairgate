@@ -1,0 +1,19 @@
+# Etiquetas del reporte de cumplimiento. Está en una subcarpeta para no alterar los hashes del
+# congelamiento, que cubren domains/hmda/*.yaml.
+variables:
+  loan_amount: Monto del préstamo
+  income: Ingresos
+  loan_to_value_ratio: Relación préstamo-valor
+  property_value: Valor de la propiedad
+  loan_term: Plazo del préstamo
+  debt_to_income_ratio: Relación deuda-ingresos
+  loan_type: Tipo de préstamo
+  loan_purpose: Propósito del préstamo
+  lien_status: Prelación del gravamen
+  occupancy_type: Tipo de ocupación
+  open_end_line_of_credit: Línea de crédito abierta
+  business_or_commercial_purpose: Propósito comercial
+  conforming_loan_limit: Límite de préstamo conforme
+  Sex: Sexo
+  Race: Raza
+  Age_group: Grupo de edad

@@ -5,7 +5,7 @@ from rdflib import Literal, Namespace
 from fairgate.engine import Session
 from fairgate.semantic.export import FAIR, build_graph, load_pipeline_run, validate
 from fairgate.semantic.queries import run_query
-from fairgate.semantic.report import add_report_node, write_pdf
+from fairgate.semantic.report import add_report_node, build_story, latest_executions, load_labels, write_pdf
 
 from .conftest import synthetic_frame, write_domain
 
@@ -72,6 +72,75 @@ def test_report_is_generated_from_the_graph(tmp_path, mlflow_tmp):
     assert validate(g)[0]
     pdf = write_pdf(g, run, True, tmp_path / "reporte.pdf")
     assert pdf.exists() and pdf.stat().st_size > 1000
+
+
+def _story_text(story) -> str:
+    """Texto de los párrafos y las celdas del reporte, sin marcado."""
+    parts = []
+    for item in story:
+        if hasattr(item, "getPlainText"):
+            parts.append(item.getPlainText())
+        for row in getattr(item, "_cellvalues", []):
+            parts += [c.getPlainText() for c in row if hasattr(c, "getPlainText")]
+    return "\n".join(parts)
+
+
+def test_report_is_in_spanish_even_with_remediation(tmp_path, mlflow_tmp):
+    df = synthetic_frame(n=3000, bias=2.5)
+    df["x1"] = df["x1"] + 1.2 * (df["z"] == 2)
+    dom = write_domain(tmp_path, df)
+    run, g = _graph_for(dom, gates=["QA_GATE_3"])
+    text = _story_text(build_story(g, run, True, None))
+    assert "Reponderación" in text and "Bloqueante" in text and "≤" in text
+    for english in ("reweighing", "block", "warn", "modelo:base"):
+        assert english not in text, english
+    assert " le " not in text and " ge " not in text
+    assert "0,10" in text  # coma decimal
+    # El modelo base falla; si el remediado aprueba, el pipeline queda aprobado por la remediación.
+    base = next(g.subjects(FAIR.subject, Literal("modelo:base")))
+    remediated = next(g.subjects(FAIR.subject, Literal("modelo:remediado")))
+    g.set((base, FAIR.gatePassed, Literal(False)))
+    g.set((remediated, FAIR.gatePassed, Literal(True)))
+    text = _story_text(build_story(g, run, True, None))
+    assert "Cumple tras remediación" in text and "APROBADO" in text and "DETENIDO" not in text
+
+
+def test_report_shows_only_the_last_monitor_run_of_each_batch(tmp_path, mlflow_tmp, monkeypatch):
+    from fairgate.monitoring import PSEUDONYM_KEY_ENV, Monitor, simulate_batches
+
+    monkeypatch.delenv(PSEUDONYM_KEY_ENV, raising=False)
+    dom = write_domain(tmp_path, synthetic_frame(n=4000))
+    assert all(o.passed for o in Session(dom).run())
+    batches = simulate_batches(synthetic_frame(n=600, seed=3), 1)
+    Monitor.from_registry(dom).run(batches)
+    Monitor.from_registry(dom).run(batches)  # misma evaluación, con otra clave efímera
+
+    run = load_pipeline_run("sint")
+    g = build_graph(run)
+    assert validate(g)[0]
+    meds = run_query(g, "MEDICIONES")
+    assert len(latest_executions(meds)) == len({(m["contractId"], m["subject"], m["timestamp"]) for m in meds}) - 1
+
+    reasons = run_query(g, "RAZONES")
+    last = max(r["time"] for r in reasons)
+    shown = {r["applicant"] for r in reasons if r["time"] == last}
+    hidden = {r["applicant"] for r in reasons} - shown
+    assert shown and hidden  # con clave efímera, cada ejecución genera otros seudónimos
+
+    labels = {"variables": {"x1": "Variable uno"}, "notas": ["Nota de prueba"]}
+    text = _story_text(build_story(g, run, True, labels))
+    assert all(a in text for a in shown) and not any(a in text for a in hidden)
+    assert "se omite 1 ejecución anterior" in text
+    assert "clave de seudónimos efímera" in text and "Nota de prueba" in text
+    assert "Variable uno" in text and "x1 (" not in text
+    assert write_pdf(g, run, True, tmp_path / "reporte.pdf", labels=labels).stat().st_size > 1000
+
+
+def test_load_labels_is_optional_and_reads_the_case_file(tmp_path):
+    assert load_labels(tmp_path) == {"variables": {}, "notas": []}
+    (tmp_path / "reporte").mkdir()
+    (tmp_path / "reporte" / "etiquetas.yaml").write_text("variables: {a: Etiqueta}\n", encoding="utf-8")
+    assert load_labels(tmp_path) == {"variables": {"a": "Etiqueta"}, "notas": []}
 
 
 def test_operation_alerts_are_traceable_pc4(tmp_path, mlflow_tmp):

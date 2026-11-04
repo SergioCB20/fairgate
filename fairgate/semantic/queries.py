@@ -52,7 +52,7 @@ WHERE {
 """,
     ),
     "PC3": (
-        "¿Qué razones de rechazo se comunicaron a cada solicitante?",
+        "¿Qué razones de rechazo se registraron para cada solicitante?",
         """
 SELECT ?applicant ?rank ?feature ?contribution ?modelRun ?batch
 WHERE {
@@ -121,18 +121,48 @@ ORDER BY ?ruleId ?attribute
     "MEDICIONES": (
         "Resultado de cada regla de cada ejecución de compuerta",
         """
-SELECT ?contractId ?version ?subject ?gatePassed ?ruleId ?severity ?attribute ?value ?ciLow ?ciHigh ?decision ?operator ?threshold ?passed ?timestamp
+SELECT ?contractId ?version ?subject ?gatePassed ?ruleId ?metric ?severity ?attribute ?value ?ciLow ?ciHigh ?decision ?operator ?threshold ?passed ?timestamp
 WHERE {
   ?exec a fair:GateExecution ; fair:subject ?subject ; fair:gatePassed ?gatePassed ; prov:startedAtTime ?timestamp .
   ?m prov:wasGeneratedBy ?exec ; fair:measuresRule ?rule ; dqv:value ?value ;
      fair:decisionValue ?decision ; fair:rulePassed ?passed .
-  ?rule fair:ruleId ?ruleId ; fair:severity ?severity ; fair:operator ?operator ; fair:threshold ?threshold ;
-        fair:partOfContract ?c .
+  ?rule fair:ruleId ?ruleId ; fair:metricName ?metric ; fair:severity ?severity ; fair:operator ?operator ;
+        fair:threshold ?threshold ; fair:partOfContract ?c .
   ?c fair:contractId ?contractId ; fair:version ?version .
   OPTIONAL { ?m fair:concernsAttribute/fair:attributeName ?attribute }
   OPTIONAL { ?m fair:ciLow ?ciLow ; fair:ciHigh ?ciHigh }
 }
 ORDER BY ?timestamp ?ruleId ?attribute
+""",
+    ),
+    # Consulta de apoyo del reporte: como la PC3, con el lote y la ejecución que generó cada razón.
+    "RAZONES": (
+        "Razones de rechazo con la ejecución que las generó",
+        """
+SELECT ?subject ?time ?applicant ?rank ?feature ?contribution ?modelRun
+WHERE {
+  ?r a fair:AdverseActionReason ;
+     fair:applicantPseudoId ?applicant ;
+     fair:rank ?rank ;
+     fair:featureName ?feature ;
+     fair:contribution ?contribution ;
+     fair:explainsDecisionOf/fair:mlflowRunId ?modelRun ;
+     prov:wasGeneratedBy ?exec .
+  ?exec fair:subject ?subject ; prov:startedAtTime ?time .
+}
+ORDER BY ?subject ?applicant ?rank
+""",
+    ),
+    # Consulta de apoyo del reporte: registros de cada lote de producción evaluado por el C4.
+    "LOTES_OPERACION": (
+        "Lotes de producción evaluados por el C4",
+        """
+SELECT DISTINCT ?subject ?records
+WHERE {
+  ?exec a fair:GateExecution ; fair:subject ?subject ; prov:used ?b ;
+        fair:appliesRule/fair:partOfContract/fair:contractId "C4" .
+  ?b a fair:DataBatch ; fair:recordsCount ?records .
+}
 """,
     ),
 }

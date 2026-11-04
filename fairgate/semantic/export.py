@@ -261,6 +261,7 @@ def build_graph(run: PipelineRun) -> Graph:
                 g.add((reason, FAIR.contribution, _dec(r["contribution"])))
                 g.add((reason, FAIR.explainsDecisionOf, model))
                 g.add((reason, PROV.wasDerivedFrom, prod_batch))
+                g.add((reason, PROV.wasGeneratedBy, execution))
             for kind, flag in (("datos", "data_drift_alert"), ("sesgo", "bias_drift_alert")):
                 if not extra.get(flag):
                     continue

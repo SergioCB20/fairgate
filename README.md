@@ -95,7 +95,7 @@ El **repositorio RDF** es el directorio `lineage/` (`fairgate/semantic/store.py`
 |---|---|
 | PC1 | ¿Qué contrato y regla bloquearon, con qué valor e intervalo, y en qué paso? |
 | PC2 | ¿Con qué lote (hash) se entrenó el modelo aprobado? |
-| PC3 | ¿Qué razones de rechazo se comunicaron a cada solicitante? |
+| PC3 | ¿Qué razones de rechazo se registraron para cada solicitante? |
 | PC4 | ¿Qué alertas de deriva ocurrieron, sobre qué lote, por qué regla y si dispararon el reentrenamiento? |
 | PC5 | ¿Cuál fue la diferencia de exactitud y de equidad entre el modelo base y el remediado? |
 

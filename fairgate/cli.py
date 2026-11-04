@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
 
     domain = load_domain(args.domain)
     if args.cmd in ("export", "query", "report"):
-        return _semantic(args, domain.dataset.name)
+        return _semantic(args, domain)
     if args.cmd == "monitor":
         return _monitor(args, domain)
     if args.cmd == "validate":
@@ -127,11 +127,13 @@ def _monitor(args, domain) -> int:
     return 0
 
 
-def _semantic(args, dataset: str) -> int:
+def _semantic(args, domain) -> int:
     from .semantic.export import LineageNotFound, export, validate
     from .semantic.queries import QUERIES, run_query
-    from .semantic.report import add_report_node, write_pdf
+    from .semantic.report import add_report_node, load_labels, write_pdf
     from .semantic.store import Repository
+
+    dataset = domain.dataset.name
 
     if args.cmd == "query" and args.historial:
         name = args.question.upper()
@@ -176,7 +178,8 @@ def _semantic(args, dataset: str) -> int:
             print("El grafo con el reporte NO conforma las formas SHACL.\n" + shacl_text)
             return 1
         graph.serialize(path, format="turtle")
-        pdf = write_pdf(graph, run, conforms, PROJECT_ROOT / "reports" / (Path(path).stem + ".pdf"))
+        pdf = write_pdf(graph, run, conforms, PROJECT_ROOT / "reports" / (Path(path).stem + ".pdf"),
+                        labels=load_labels(domain.path))
         print(f"Reporte de cumplimiento: {pdf}")
     return 0
 

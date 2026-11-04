@@ -1,0 +1,16 @@
+# Etiquetas del reporte de cumplimiento. Está en una subcarpeta para no alterar los hashes del
+# congelamiento, que cubren domains/davronov/*.yaml.
+# El dataset no tiene diccionario de columnas: las etiquetas traducen el nombre literal y no
+# interpretan lo que no está documentado (en particular, INPS).
+variables:
+  Number_of_credits: Número de créditos
+  Linked_cards: Tarjetas vinculadas
+  INPS_mln_sum: Monto INPS (millones)
+  INPS_yes_no: INPS (sí/no)
+  Region: Región
+  Language: Idioma
+  Has_Credit: Tiene crédito
+  Sex: Sexo
+  Age_group: Grupo de edad
+notas:
+  - "El conjunto de datos no tiene diccionario de columnas. Las etiquetas traducen el nombre de cada variable, y las variables INPS se muestran sin interpretar porque su significado no está documentado."
