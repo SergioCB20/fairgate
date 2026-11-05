@@ -1,0 +1,63 @@
+{
+  "estimator": "hist_gradient_boosting",
+  "seeds": [
+    2000,
+    2001,
+    2002,
+    2003,
+    2004,
+    2005,
+    2006,
+    2007,
+    2008,
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026,
+    2027,
+    2028,
+    2029
+  ],
+  "fraction": 0.8,
+  "top_k": 3,
+  "rejected_reference": 246,
+  "vs_reference": {
+    "comparisons": 30,
+    "identical_median": 0.7670542635658915,
+    "identical_min": 0.6078431372549019,
+    "first_identical_median": 0.9354221560316187,
+    "first_identical_min": 0.8571428571428571,
+    "overlap_median": 0.8835591133004925,
+    "applicants_median": 206.5
+  },
+  "pairwise": {
+    "comparisons": 435,
+    "identical_median": 0.7439613526570048,
+    "identical_min": 0.43169398907103823,
+    "first_identical_median": 0.9333333333333333,
+    "first_identical_min": 0.8011049723756906,
+    "overlap_median": 0.8702072538860103,
+    "applicants_median": 198
+  },
+  "rank1_reference": {
+    "INPS_mln_sum": 139,
+    "INPS_yes_no": 54,
+    "Linked_cards": 49,
+    "Region": 3,
+    "Number_of_credits": 1
+  }
+}

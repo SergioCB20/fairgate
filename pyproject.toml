@@ -2,6 +2,9 @@
 name = "fairgate"
 version = "0.1.0"
 description = "Motor de contratos de equidad (QA Gates) para pipelines de aprendizaje supervisado"
+license = { text = "MIT" }
+readme = "README.md"
+authors = [{ name = "Sergio Chumbimuni" }]
 requires-python = ">=3.11,<3.12"
 # Versiones exactas en requirements.lock.txt (reproducibilidad local y en CI, ADR-009).
 dependencies = [

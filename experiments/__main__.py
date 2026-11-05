@@ -49,8 +49,16 @@ def frozen_ok(domain: str) -> tuple[bool, str]:
     if not path.exists():
         return False, f"los contratos de {domain} no están congelados (python -m experiments congelar)"
     frozen = json.loads(path.read_text(encoding="utf-8"))["hashes"]
-    current = contract_hashes(domain)
-    changed = sorted(k for k in set(frozen) | set(current) if frozen.get(k) != current.get(k))
+    # El congelamiento se hizo en Windows y registró algunos YAML con fin de línea LF y otros con CRLF.
+    # Para que la comprobación no dependa del sistema operativo ni de cómo Git entregó el archivo,
+    # un contrato se considera sin cambios si su contenido coincide con el hash congelado con
+    # cualquiera de las dos terminaciones de línea. Los registros de congelamiento no se modifican.
+    current: dict[str, set[str]] = {}
+    for f in sorted((PROJECT_ROOT / domain).glob("*.yaml")):
+        lf = f.read_bytes().replace(b"\r\n", b"\n")
+        crlf = lf.replace(b"\n", b"\r\n")
+        current[f.name] = {hashlib.sha256(lf).hexdigest(), hashlib.sha256(crlf).hexdigest()}
+    changed = sorted(k for k in set(frozen) | set(current) if frozen.get(k) not in current.get(k, set()))
     return (not changed, f"cambiaron desde el congelamiento: {', '.join(changed)}" if changed else "")
 
 

@@ -30,5 +30,11 @@ Thumbs.db
 lineage/
 reports/
 
-# Evaluación experimental (O4): registros y reportes, derivados del dataset
-experiments/resultados/
+# Evaluación experimental (O4). Se versionan los resúmenes y las estimaciones (pequeños);
+# los registros por repetición (.jsonl, ~44 MB) y los logs se publican como activo del release.
+experiments/resultados/*
+!experiments/resultados/evaluacion-dataset.md
+!experiments/resultados/evaluacion-hist_gradient_boosting.md
+!experiments/resultados/calibracion-dataset.md
+!experiments/resultados/e6-evaluacion-dataset.md
+!experiments/resultados/estabilidad-*.json

@@ -1,6 +1,8 @@
 # fairgate
 
-Motor de **contratos de equidad** (QA Gates) para pipelines de aprendizaje supervisado. Es el prototipo de la tesis *"Validación de fairness en MLOps"*, correspondiente al Objetivo 3.
+Motor de **contratos de equidad** (QA Gates) para pipelines de aprendizaje supervisado. Es el prototipo de la tesis *"Validación de fairness en MLOps"*, correspondiente al Objetivo 3. Es un prototipo de investigación, no un producto: sirve para evaluar la arquitectura de compuertas, y cada organización debe declarar y recalibrar sus propios contratos.
+
+Licencia MIT (`LICENSE`). **El repositorio no contiene datos:** los conjuntos de los casos de estudio se obtienen de su fuente y se rigen por sus propias licencias.
 
 El motor es **genérico** para clasificación binaria sobre datos tabulares. Todo lo que depende del caso de estudio se declara en YAML dentro de `domains/<caso>/`: columnas, etiqueta y valor favorable, clasificador base (catálogo: `logistic_regression`, `random_forest`, `hist_gradient_boosting`), atributos protegidos, sus columnas de origen, métricas, umbrales y técnica de remediación. Para aplicar el sistema a otro dataset del crédito o a otro rubro se agrega una carpeta nueva, sin cambiar código. Regresión, clasificación multiclase, *ranking* y datos no tabulares quedan fuera de alcance.
 
@@ -24,6 +26,7 @@ fairgate/            motor genérico
   cli.py             `python -m fairgate validate|run|monitor|export|query|report <dominio>`
 domains/davronov/    dataset.yaml + contratos c1.yaml, c2.yaml, c3.yaml, c4.yaml
 domains/hmda/        caso de generalización (E6): HMDA de Delaware, 2022 (referencia) y 2023 (producción)
+docs/adr/            decisiones de diseño (ADR-001 a ADR-020), citadas en el código y los contratos
 tests/unit/          pruebas del motor con datos sintéticos (no necesitan el dataset)
 tests/gates/         una prueba por regla × atributo sobre el dataset real
 ```
@@ -47,7 +50,7 @@ La licencia del dataset es *"Data files © Original Authors"*, así que **no se 
 2. Copiar el CSV a `data/davronov/credit-scoring.csv`.
 3. Verificar que es el mismo lote: `python -c "from fairgate.data import file_hash; from pathlib import Path; print(file_hash(Path('data/davronov/credit-scoring.csv')))"` debe devolver `1aa87791dbf04be9e8440f4eef1ebc54`, el mismo hash que registra `data/davronov/credit-scoring.csv.dvc`.
 
-Con un remoto DVC privado configurado, basta con `dvc pull`.
+El remoto DVC del autor es privado, así que `dvc pull` solo funciona con sus credenciales; quien reproduzca el trabajo debe seguir los pasos anteriores. El caso HMDA no necesita remoto: `python -m experiments preparar-hmda` lo descarga de la API de la FFIEC.
 
 ## Uso
 
@@ -134,12 +137,42 @@ python -m experiments congelar --dominio domains/hmda --nota "..."
 python -m experiments e6 --semillas evaluacion                                # E6: deriva real
 ```
 
-Semillas: desarrollo 42, calibración 1000–1029, evaluación 2000–2029, humo 9000–9002. **La evaluación solo se ejecuta con los contratos congelados** (`experiments/congelamiento.json`, con el hash de cada YAML del dominio; `congelamiento-hmda.json` para el E6). Los registros quedan en `experiments/resultados/` (no versionado).
+Semillas: desarrollo 42, calibración 1000–1029, evaluación 2000–2029, humo 9000–9002. **La evaluación solo se ejecuta con los contratos congelados** (`experiments/congelamiento.json`, con el hash de cada YAML del dominio; `congelamiento-hmda.json` para el E6). Los registros quedan en `experiments/resultados/`. De ahí se versionan los resúmenes (`evaluacion-dataset.md`, `evaluacion-hist_gradient_boosting.md`, `calibracion-dataset.md`, `e6-evaluacion-dataset.md` y `estabilidad-*.json`); los registros por repetición (`.jsonl`) se publican como activo del *release* `resultados-articulo`.
+
+## Reproducir los resultados del artículo
+
+Hay dos caminos. El primero no necesita ejecutar nada pesado; el segundo regenera todo desde cero.
+
+**A. Regenerar las tablas a partir de los registros publicados** (minutos).
+
+1. Instalar el entorno (sección *Instalación*).
+2. Descargar `fairgate-resultados-articulo.zip` del *release* `resultados-articulo` y descomprimirlo en `experiments/resultados/`. Contiene los registros `.jsonl` de calibración, evaluación (regresión logística y *gradient boosting*), E6 y las pruebas de humo (solo métricas agregadas por repetición, sin filas del dataset).
+3. Ejecutar `python -m experiments analizar experiments/resultados/evaluacion-dataset.jsonl`. El resultado coincide con `experiments/resultados/evaluacion-dataset.md` salvo 2 de sus 991 líneas (E4R con intensidad 0,05, solo 2 detecciones), donde la etiqueta de la etapa puede salir como `modelo` en lugar de `operacion`. Las cifras de detección, localización y los intervalos son idénticos.
+
+**B. Re-ejecutar la evaluación completa** (varias horas).
+
+1. Instalar el entorno y obtener los datos: Davronov desde Kaggle (con la verificación del *hash*) y HMDA con `python -m experiments preparar-hmda`.
+2. Comprobar que los contratos son los congelados: `experiments/congelamiento.json` y `experiments/congelamiento-hmda.json` guardan el *hash* de cada YAML, y las semillas de evaluación solo se ejecutan si coinciden. La comparación no depende del fin de línea (LF o CRLF): el congelamiento se hizo en Windows y registró algunos YAML con una terminación y otros con la otra, y los YAML de `domains/` se entregan con LF (`.gitattributes`).
+3. Ejecutar los comandos de la sección *Evaluación experimental*, en el orden indicado (las semillas de calibración y de evaluación están fijadas en `experiments/protocol.py`).
+
+Las cifras del artículo salen de `evaluacion-dataset.md` (1 170 repeticiones con regresión logística), `evaluacion-hist_gradient_boosting.md` (870 repeticiones), `calibracion-dataset.md` y `e6-evaluacion-dataset.md` (HMDA). Los resultados dependen de la versión de las dependencias: usar siempre `requirements.lock.txt`.
+
+## Decisiones de diseño
+
+`docs/adr/` reúne los registros de decisión (ADR-001 a ADR-020) a los que remiten el código, los contratos y este archivo. El ADR-020 explica por qué el repositorio es público pero no contiene datos.
+
+## Cómo citar
+
+Chumbimuni, S. (2026). *fairgate: contratos de equidad para la validación continua de pipelines MLOps* (v0.1.0) [Software]. https://github.com/SergioCB20/fairgate
+
+## Licencia
+
+MIT. Ver `LICENSE`. Los datos de los casos de estudio no se incluyen ni se relicencian.
 
 ## CI (GitHub Actions)
 
 - `motor`: valida los contratos y ejecuta `tests/unit`. Siempre corre.
-- `compuertas-davronov`: descarga el dataset con `dvc pull` y ejecuta `tests/gates`: C1 a C3 sobre el pipeline y C4 sobre la operación simulada, donde no debe haber alertas. Después ejecuta tres repeticiones del control (E0, semillas de humo) para medir el costo de cada compuerta en GitHub Actions (Cap. 6, 6.2.3), y guarda el linaje, el reporte y ese registro como artefactos. Solo corre si el repositorio tiene los *secrets* `DAGSHUB_USER` y `DAGSHUB_TOKEN` (usuario y token) de un remoto DVC **privado** (por ejemplo, un repositorio privado de DagsHub configurado como remoto `origin`).
+- `compuertas-davronov`: descarga el dataset con `dvc pull` y ejecuta `tests/gates`: C1 a C3 sobre el pipeline y C4 sobre la operación simulada, donde no debe haber alertas. Después ejecuta tres repeticiones del control (E0, semillas de humo) para medir el costo de cada compuerta en GitHub Actions (Cap. 6, 6.2.3), y guarda el linaje, el reporte y ese registro como artefactos. Solo corre si el repositorio tiene los *secrets* `DAGSHUB_USER` y `DAGSHUB_TOKEN` (usuario y token) de un remoto DVC **privado** (por ejemplo, un repositorio privado de DagsHub configurado como remoto `origin`). En una copia del repositorio sin esos *secrets*, este trabajo se omite y solo corre `motor`.
 
 ## Estado (etapas de ADR-014)
 
