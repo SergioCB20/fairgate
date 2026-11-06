@@ -19,7 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-Los conjuntos de datos usados en los casos de estudio (Credit-scoring data de
-Kaggle y HMDA de la FFIEC) NO forman parte de este repositorio y se rigen por
-sus propias licencias y condiciones.
